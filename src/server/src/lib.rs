@@ -70,16 +70,22 @@ struct Player {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Game {
+struct GameData {
     //we need to make sure they stay ordered to enable correct behavior of PosGenerator
     world: HashMap<Position, Tile>,
     //HashMap<"username", Player>
     players: HashMap<String, Player>,
+    pos_gen: PosGenerator,
+}
+
+#[derive(Debug)]
+struct Game {
+    data: GameData,
 }
 
 const VERTICE_COUPLE: [Position; 2] = [Position { x: 1, y: 0 }, Position { x: 0, y: -1 }];
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct PosGenerator {
     step: u32,
     last_pos: Position,
@@ -154,20 +160,28 @@ impl Game {
             )
             .join(".json"),
         )?;
-        serde_json::to_writer(file, self)?;
+        serde_json::to_writer(file, &self.data)?;
         Ok(())
     }
 
     pub fn load(&self, path: PathBuf) -> Result<Game, io::Error> {
         let file = File::open(path)?;
-        let game: Game = serde_json::from_reader(file)?;
-        Ok(game)
+        let data: GameData = serde_json::from_reader(file)?;
+        Ok(Game { data })
     }
 
     pub fn new(nbr: u32) -> Game {
-        let world = HashMap::new();
+        let mut world = HashMap::new();
+        let mut pos_gen = PosGenerator::new(0);
         for _ in 0..nbr {
-            tiles.push(Tile::new());
+            world.insert(pos_gen.next().unwrap(), Tile::new());
+        }
+        Game {
+            data: GameData {
+                world: world,
+                players: HashMap::new(),
+                pos_gen: pos_gen,
+            },
         }
     }
 }
