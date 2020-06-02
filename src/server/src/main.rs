@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 use std::{env, io};
 use tokio;
 use tokio::net::UdpSocket;
-use server::{Client};
+use server::{Client, Game};
 
 
 const BUFFER_SIZE: usize = 1024;
