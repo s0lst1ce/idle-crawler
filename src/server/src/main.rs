@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 use std::{env, io};
 use tokio;
 use tokio::net::UdpSocket;
-use server::Position;
+use server::{Client};
 
 
 const BUFFER_SIZE: usize = 1024;
@@ -16,17 +16,6 @@ struct Server {
     clients: HashMap<SocketAddr, Client>,
     buf: Vec<u8>,
 }
-
-struct Client {
-    //None if the user hasn't been authentificated
-    username: Option<String>,
-    //the tiles for which information has to be sent
-    watching: Vec<Position>,
-
-    //buffer and uptil where it must be read
-    //pending: Option<Value>,
-}
-
 
 impl Server {
     async fn poll(&mut self) -> Result<(), io::Error> {
@@ -49,17 +38,6 @@ impl Server {
         }
     }
 }
-
-impl Client {
-    fn new() -> Client {
-        Client {
-            username: None,
-            watching: vec![],
-            //pending: None
-        }
-    }
-}
-
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
