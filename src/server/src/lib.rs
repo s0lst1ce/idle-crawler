@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::cmp::Eq;
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{write, File};
 use std::hash::Hash;
 use std::io;
+use std::io::Read;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -79,7 +80,7 @@ struct GameData {
 }
 
 #[derive(Debug)]
-struct Game {
+pub struct Game {
     data: GameData,
 }
 
@@ -103,7 +104,7 @@ impl PosGenerator {
         }
     }
     fn total_pos(&self) -> u32 {
-        let nbr = 1;
+        let mut nbr = 1;
         for i in 0..self.step {
             nbr += 2 * i;
         }
@@ -151,7 +152,7 @@ impl Game {
     pub fn save(&self, path: PathBuf) -> Result<(), io::Error> {
         // create a save file with the current time as filename
         let now = SystemTime::now();
-        let file = File::create(
+        write(
             path.join(
                 now.duration_since(UNIX_EPOCH)
                     .expect("Time shouldn't rewind.")
@@ -159,14 +160,15 @@ impl Game {
                     .to_string(),
             )
             .join(".json"),
+            serde_json::to_string(&self.data)?,
         )?;
-        serde_json::to_writer(file, &self.data)?;
         Ok(())
     }
 
     pub fn load(&self, path: PathBuf) -> Result<Game, io::Error> {
-        let file = File::open(path)?;
-        let data: GameData = serde_json::from_reader(file)?;
+        let mut file = String::new();
+        File::open(path)?.read_to_string(&mut file)?;
+        let data: GameData = serde_json::from_str(&file)?;
         Ok(Game { data })
     }
 
