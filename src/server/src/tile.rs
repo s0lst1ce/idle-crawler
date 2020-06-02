@@ -19,7 +19,6 @@ struct Resources {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Tile {
-    //WARN! this does not exactly respect the tile schema descriped in the repo --> the tuple would need to be a HashMap, however this is not very elegant in rust -> needs to be thought of again
     resources: Resources,
     //Vec<"username">
     players: Vec<String>,
@@ -27,6 +26,15 @@ pub struct Tile {
 
 impl Tile {
     pub fn new() -> Tile {
-        unimplemented!()
+        //currently hardcoded for testing purposes
+        let mut slots = HashMap::new();
+        slots.insert("iron_mine", [2, 5]);
+        Tile {
+            resources: Resources {
+                slots: HashMap::new(),
+                amounts: HashMap::new(),
+            },
+            players: Vec::new(),
+        }
     }
 }

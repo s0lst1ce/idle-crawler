@@ -1,6 +1,8 @@
+mod buildings;
 mod player;
 mod pos;
 mod tile;
+pub use self::buildings::{load_buildings, Building};
 pub use self::player::Player;
 pub use self::pos::PosGenerator;
 pub use self::tile::{Position, Tile};
@@ -40,6 +42,7 @@ struct GameData {
 #[derive(Debug)]
 pub struct Game {
     data: GameData,
+    buildings: HashMap<String, Building>,
 }
 
 impl Game {
@@ -63,7 +66,10 @@ impl Game {
         let mut file = String::new();
         File::open(path)?.read_to_string(&mut file)?;
         let data: GameData = serde_json::from_str(&file)?;
-        Ok(Game { data })
+        Ok(Game {
+            data,
+            buildings: load_buildings(),
+        })
     }
 
     pub fn new(nbr: u32) -> Game {
@@ -78,6 +84,7 @@ impl Game {
                 players: HashMap::new(),
                 pos_gen: pos_gen,
             },
+            buildings: load_buildings(),
         }
     }
 }

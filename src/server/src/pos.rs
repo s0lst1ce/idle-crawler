@@ -20,6 +20,7 @@ impl PosGenerator {
             last_pos: Position { x: 0, y: 0 },
         }
     }
+
     fn total_pos(&self) -> u32 {
         let mut nbr = 1;
         for i in 0..self.step {

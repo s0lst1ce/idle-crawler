@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let socket = UdpSocket::bind(&addr).await?;
     println!("Listening on: {}", socket.local_addr()?);
 
-    let mut server = Server {
+    let server = Server {
         socket,
         clients: HashMap::new(),
         buf: vec![0; BUFFER_SIZE],

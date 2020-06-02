@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Building {
+struct OwnedBuilding {
     total: u32,
     workers: [u32; 2],
     tiles: HashMap<Position, u32>,
@@ -20,7 +20,7 @@ struct PlayerPeople {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Player {
-    //HashMap<"building_name", Building>
-    buildings: HashMap<String, Building>,
+    //HashMap<"building_name", OwnedBuilding>
+    buildings: HashMap<String, OwnedBuilding>,
     people: PlayerPeople,
 }
