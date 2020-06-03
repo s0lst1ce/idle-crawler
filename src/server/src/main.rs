@@ -23,7 +23,7 @@ impl Server {
         let (read_to, client_addr) = self.socket.recv_from(&mut self.buf).await?;
         //making sure the data is valid json
         let data: Value = serde_json::from_slice(&self.buf[..read_to])?;
-        println!("{:?}", data);
+        println!("Received JSON: {:?}", data);
         //self.clients.entry(client_addr).or_insert(Client::new()).pending = Some(data);
         Ok(())
     }
@@ -47,6 +47,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let socket = UdpSocket::bind(&addr).await?;
     println!("Listening on: {}", socket.local_addr()?);
+    let game = Game::new(0);
 
     let server = Server {
         socket,

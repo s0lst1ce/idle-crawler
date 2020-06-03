@@ -4,9 +4,12 @@ use std::path::Path;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Building {
+    //resource_name, amount
     pub produced: HashMap<String, u32>,
+    //resource_name, amount
     pub consumed: HashMap<String, u32>,
     pub max_workers: u32,
+    //resource_name, amount
     pub requisites: HashMap<String, u32>,
 }
 

@@ -14,6 +14,8 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+const BUILDINGS_PATH: &str = "../../utilities/buildings.json";
+
 pub struct Client {
     //None if the user hasn't been authentificated
     username: Option<String>,
@@ -68,7 +70,7 @@ impl Game {
         let data: GameData = serde_json::from_str(&file)?;
         Ok(Game {
             data,
-            buildings: load_buildings(),
+            buildings: load_buildings(PathBuf::from(BUILDINGS_PATH)),
         })
     }
 
@@ -84,7 +86,7 @@ impl Game {
                 players: HashMap::new(),
                 pos_gen: pos_gen,
             },
-            buildings: load_buildings(),
+            buildings: load_buildings(PathBuf::from(BUILDINGS_PATH)),
         }
     }
 }
