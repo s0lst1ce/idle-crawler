@@ -1,11 +1,13 @@
 mod buildings;
 mod player;
 mod pos;
+mod resources;
 mod tile;
-pub use self::buildings::{load_buildings, Building};
+pub use self::buildings::{load_buildings, AllBuildings, Building, BuildingID};
 pub use self::player::{Generator, Player};
 pub use self::pos::PosGenerator;
 pub use self::tile::{Position, Tile};
+use crate::resources::{load_resources, AllResources};
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -16,6 +18,7 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const BUILDINGS_PATH: &str = "../../utilities/buildings.json";
+const RESOURCES_PATH: &str = "../../utilities/resources.json";
 
 #[derive(Debug, Serialize, Deserialize)]
 struct GameData {
@@ -29,7 +32,8 @@ struct GameData {
 #[derive(Debug)]
 pub struct Game {
     data: GameData,
-    buildings: HashMap<String, Building>,
+    pub buildings: AllBuildings,
+    pub resources: AllResources,
     generators: HashMap<String, Generator>,
 }
 
@@ -57,6 +61,7 @@ impl Game {
         Ok(Game {
             data,
             buildings: load_buildings(BUILDINGS_PATH),
+            resources: load_resources(RESOURCES_PATH),
             generators: HashMap::new(),
         })
     }
@@ -74,6 +79,7 @@ impl Game {
                 pos_gen: pos_gen,
             },
             buildings: load_buildings(BUILDINGS_PATH),
+            resources: load_resources(RESOURCES_PATH),
             generators: HashMap::new(),
         }
     }
@@ -102,11 +108,11 @@ impl Game {
     //this for when a new player is added to the game, not to load one from the save (see Game::load)
     pub fn add_player(&mut self, player: String) -> Result<()> {
         if self.data.players.contains_key(&player) {
-            return Err(anyhow!("Player {} already exists", player));
+            Err(anyhow!("Player {} already exists", player))
         } else {
             self.data.players.insert(player.to_string(), Player::new());
             self.generators.insert(player, Generator::new());
+            Ok(())
         }
-        Ok(())
     }
 }

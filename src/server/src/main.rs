@@ -6,10 +6,27 @@ use std::net::SocketAddr;
 use std::{env, io};
 use tokio;
 use tokio::net::UdpSocket;
-use server::{Client, Game};
+use server::{Position, Game};
 
 
 const BUFFER_SIZE: usize = 1024;
+
+
+pub struct Client {
+    //None if the user hasn't been authentificated
+    username: Option<String>,
+    //the tiles for which information has to be sent
+    watching: Vec<Position>,
+}
+
+impl Client {
+    fn new() -> Client {
+        Client {
+            username: None,
+            watching: vec![],
+        }
+    }
+}
 
 struct Server {
     socket: UdpSocket,
@@ -48,6 +65,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let socket = UdpSocket::bind(&addr).await?;
     println!("Listening on: {}", socket.local_addr()?);
     let game = Game::new(0);
+    println!("Resources: {:?}\nBuildings: {:?}", game.resources, game.buildings);
 
     let server = Server {
         socket,

@@ -1,3 +1,4 @@
+use crate::resources::ResourceID;
 use serde::{Deserialize, Serialize};
 use std::cmp::Eq;
 use std::collections::HashMap;
@@ -10,16 +11,16 @@ pub struct Position {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Resources {
+struct PlayerResources {
     //HashMap<"resource_name", [u8;2]>
-    slots: HashMap<String, [u8; 2]>,
+    slots: HashMap<ResourceID, [u8; 2]>,
     //HashMap<"resource_name", u32>
-    amounts: HashMap<String, u32>,
+    amounts: HashMap<ResourceID, u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Tile {
-    resources: Resources,
+    resources: PlayerResources,
     //Vec<"username">
     players: Vec<String>,
 }
@@ -30,7 +31,7 @@ impl Tile {
         let mut slots = HashMap::new();
         slots.insert("iron_mine", [2, 5]);
         Tile {
-            resources: Resources {
+            resources: PlayerResources {
                 slots: HashMap::new(),
                 amounts: HashMap::new(),
             },
