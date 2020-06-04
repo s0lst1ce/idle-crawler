@@ -3,9 +3,10 @@ mod player;
 mod pos;
 mod tile;
 pub use self::buildings::{load_buildings, Building};
-pub use self::player::Player;
+pub use self::player::{Generator, Player};
 pub use self::pos::PosGenerator;
 pub use self::tile::{Position, Tile};
+use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{write, File};
@@ -15,22 +16,6 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const BUILDINGS_PATH: &str = "../../utilities/buildings.json";
-
-pub struct Client {
-    //None if the user hasn't been authentificated
-    username: Option<String>,
-    //the tiles for which information has to be sent
-    watching: Vec<Position>,
-}
-
-impl Client {
-    fn new() -> Client {
-        Client {
-            username: None,
-            watching: vec![],
-        }
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct GameData {
@@ -45,6 +30,7 @@ struct GameData {
 pub struct Game {
     data: GameData,
     buildings: HashMap<String, Building>,
+    generators: HashMap<String, Generator>,
 }
 
 impl Game {
@@ -70,7 +56,8 @@ impl Game {
         let data: GameData = serde_json::from_str(&file)?;
         Ok(Game {
             data,
-            buildings: load_buildings(PathBuf::from(BUILDINGS_PATH)),
+            buildings: load_buildings(BUILDINGS_PATH),
+            generators: HashMap::new(),
         })
     }
 
@@ -86,7 +73,40 @@ impl Game {
                 players: HashMap::new(),
                 pos_gen: pos_gen,
             },
-            buildings: load_buildings(PathBuf::from(BUILDINGS_PATH)),
+            buildings: load_buildings(BUILDINGS_PATH),
+            generators: HashMap::new(),
         }
+    }
+
+    pub fn update(&mut self) -> () {
+        unimplemented!()
+    }
+
+    pub fn generate(&mut self) -> Result<()> {
+        for (player, gen) in self.generators.iter_mut() {
+            gen.generate(
+                self.data
+                    .players
+                    .get_mut(player)
+                    .context("a player exists only in generators")?,
+            )
+        }
+        Ok(())
+    }
+
+    pub fn remove_player(&mut self, player: &String) -> () {
+        self.data.players.remove(player);
+        self.generators.remove(player);
+    }
+
+    //this for when a new player is added to the game, not to load one from the save (see Game::load)
+    pub fn add_player(&mut self, player: String) -> Result<()> {
+        if self.data.players.contains_key(&player) {
+            return Err(anyhow!("Player {} already exists", player));
+        } else {
+            self.data.players.insert(player.to_string(), Player::new());
+            self.generators.insert(player, Generator::new());
+        }
+        Ok(())
     }
 }
