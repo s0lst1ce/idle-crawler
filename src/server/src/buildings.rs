@@ -20,10 +20,24 @@ pub struct Building {
 }
 
 pub type AllBuildings = HashMap<BuildingID, Building>;
+//vector of building that consume the resource used as key
+pub type DependencyTree = HashMap<ResourceID, Vec<BuildingID>>;
 
-pub fn load_buildings<P: AsRef<Path>>(path: P) -> AllBuildings {
+pub fn load_buildings<P: AsRef<Path>>(path: P) -> (AllBuildings, DependencyTree) {
     let file = std::fs::read(path).expect("couldn't read buildings.json");
     let data: AllBuildings =
         serde_json::from_slice(&file).expect("couldn't serialize buildings JSON");
-    data
+
+    let tree = get_tree(&data);
+    (data, tree)
+}
+
+fn get_tree(buildings: &AllBuildings) -> DependencyTree {
+    let mut tree: DependencyTree = HashMap::new();
+    for (name, building) in buildings.iter() {
+        for (resource, _) in building.consumed.iter() {
+            tree.entry(*resource).or_insert(Vec::new()).push(*name);
+        }
+    }
+    tree
 }

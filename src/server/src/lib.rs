@@ -3,7 +3,7 @@ mod player;
 mod pos;
 mod resources;
 mod tile;
-pub use self::buildings::{load_buildings, AllBuildings, Building, BuildingID};
+pub use self::buildings::{load_buildings, AllBuildings, Building, BuildingID, DependencyTree};
 pub use self::player::{Generator, Player};
 pub use self::pos::PosGenerator;
 pub use self::tile::{Position, Tile};
@@ -34,6 +34,8 @@ pub struct Game {
     data: GameData,
     pub buildings: AllBuildings,
     pub resources: AllResources,
+    dep_tree: DependencyTree,
+    //username, Generator
     generators: HashMap<String, Generator>,
 }
 
@@ -58,9 +60,11 @@ impl Game {
         let mut file = String::new();
         File::open(path)?.read_to_string(&mut file)?;
         let data: GameData = serde_json::from_str(&file)?;
+        let (buildings, tree) = load_buildings(BUILDINGS_PATH);
         Ok(Game {
             data,
-            buildings: load_buildings(BUILDINGS_PATH),
+            buildings: buildings,
+            dep_tree: tree,
             resources: load_resources(RESOURCES_PATH),
             generators: HashMap::new(),
         })
@@ -72,13 +76,15 @@ impl Game {
         for _ in 0..nbr {
             world.insert(pos_gen.next().unwrap(), Tile::new());
         }
+        let (buildings, tree) = load_buildings(BUILDINGS_PATH);
         Game {
             data: GameData {
                 world: world,
                 players: HashMap::new(),
                 pos_gen: pos_gen,
             },
-            buildings: load_buildings(BUILDINGS_PATH),
+            buildings: buildings,
+            dep_tree: tree,
             resources: load_resources(RESOURCES_PATH),
             generators: HashMap::new(),
         }

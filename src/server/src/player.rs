@@ -1,4 +1,4 @@
-use crate::buildings::{AllBuildings, BuildingID};
+use crate::buildings::{AllBuildings, BuildingID, DependencyTree};
 use crate::resources::ResourceID;
 use crate::tile::Position;
 use serde::{Deserialize, Serialize};
@@ -36,11 +36,6 @@ impl Population {
     }
 }
 
-//ideally this GenMap would be stored in the player struct
-//however it shouldn't be savec in the JSON so it has to be saved eslewhere
-//unless a field can be omitted by serde that is
-pub type GenMap = HashMap<ResourceID, i32>;
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Player {
     //HashMap<"building_name", OwnedBuilding>
@@ -60,37 +55,57 @@ impl Player {
     }
 }
 
+//ideally this GenMap would be stored in the player struct
+//however it shouldn't be savec in the JSON so it has to be saved eslewhere
+//unless a field can be omitted by serde that is
+pub type GenMap = HashMap<ResourceID, i32>;
+
 #[derive(Debug)]
 pub struct Generator {
     map: Option<GenMap>,
+    ratios: HashMap<BuildingID, f32>,
 }
 
 impl Generator {
     pub fn new() -> Generator {
-        Generator { map: None }
-    }
-
-    pub fn build_gen_map(
-        &mut self,
-        player_buildings: &HashMap<BuildingID, OwnedBuilding>,
-        building_list: &AllBuildings,
-    ) -> () {
-        let mut gen = GenMap::new();
-        for (b_name, owned_building) in player_buildings.iter() {
-            //adding resources produced per tick
-            for (resource, amount) in building_list.get(b_name).unwrap().produced.iter() {
-                *gen.entry(*resource).or_insert(0) += (*amount * owned_building.workers.0) as i32;
-            }
-            //substracting resources consumed per tick
-            for (resource, amount) in building_list.get(b_name).unwrap().consumed.iter() {
-                *gen.entry(*resource).or_insert(0) -= (*amount * owned_building.workers.0) as i32;
-            }
+        Generator {
+            map: None,
+            ratios: HashMap::new(),
         }
-        self.map = Some(gen);
-        ()
     }
 
-    pub fn generate(&mut self, player: &mut Player) -> () {
+    pub fn calc_ratios(
+        tree: &DependencyTree,
+        all_buildings: &AllBuildings,
+        player_buildings: &HashMap<BuildingID, OwnedBuilding>,
+        player_resources: &HashMap<ResourceID, Stockpile>,
+    ) -> HashMap<BuildingID, f32> {
+        let mut ratios: HashMap<BuildingID, f32> = HashMap::new();
+        for (resource, depends) in tree.iter() {
+            let mut needed: u32 = 0;
+            for building_id in depends.iter() {
+                needed += all_buildings
+                    .get(building_id)
+                    .unwrap()
+                    .consumed
+                    .get(resource)
+                    .unwrap()
+                    * player_buildings.get(building_id).unwrap().workers.0;
+            }
+            ratios.insert(
+                *resource,
+                1.0_f32.min((needed / player_resources.get(resource).unwrap().current) as f32),
+            );
+        }
+        ratios
+    }
+
+    pub fn generate(
+        tree: &DependencyTree,
+        all_buildings: &AllBuildings,
+        player_buildings: &HashMap<BuildingID, OwnedBuilding>,
+        player_resources: &HashMap<ResourceID, Stockpile>,
+    ) -> GenMap {
         unimplemented!()
     }
 }
