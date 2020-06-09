@@ -95,14 +95,7 @@ impl Game {
     }
 
     pub fn generate(&mut self) -> Result<()> {
-        for (player, gen) in self.generators.iter_mut() {
-            gen.generate(
-                self.data
-                    .players
-                    .get_mut(player)
-                    .context("a player exists only in generators")?,
-            )
-        }
+        for (name, gen) in self.generators.iter() {}
         Ok(())
     }
 

@@ -19,6 +19,12 @@ impl Stockpile {
     }
 }
 
+impl Default for Stockpile {
+    fn default() -> Self {
+        Stockpile::new()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OwnedBuilding {
     total: u32,
@@ -106,11 +112,16 @@ impl Player {
     pub fn generate(&mut self, gen: &GenMap) -> bool {
         let mut needs_change = false;
         for (resource, amount) in gen.iter() {
-            self.resources
-                .entry(*resource)
-                .or_insert(Stockpile::new())
-                .current
-                .wrapping_add(*amount as u32);
+            let mut crt = self.resources.entry(*resource).or_default();
+            crt.current = crt.current.wrapping_add(*amount as u32);
+
+            //checking if there enough resources for the next tick
+            if *amount < 0 {
+                match self.resources.get(resource) {
+                    Some(x) if x.current < amount.abs() as u32 => needs_change = true,
+                    _ => (),
+                };
+            };
         }
 
         needs_change
@@ -125,11 +136,15 @@ pub type GenMap = HashMap<ResourceID, i32>;
 #[derive(Debug)]
 pub struct Generator {
     map: Option<GenMap>,
+    ratios: Option<HashMap<BuildingID, f32>>,
 }
 
 impl Generator {
     pub fn new() -> Generator {
-        Generator { map: None }
+        Generator {
+            map: None,
+            ratios: None,
+        }
     }
     pub fn make_gen_map(
         &mut self,

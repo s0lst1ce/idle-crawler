@@ -20,7 +20,7 @@ pub struct Building {
 }
 
 pub type AllBuildings = HashMap<BuildingID, Building>;
-//vector of building that consume the resource used as key
+//all the buildings (value) using resource (key)
 pub type DependencyTree = HashMap<ResourceID, Vec<BuildingID>>;
 
 pub fn load_buildings<P: AsRef<Path>>(path: P) -> (AllBuildings, DependencyTree) {
