@@ -8,7 +8,7 @@ pub use self::player::{Generator, Player};
 pub use self::pos::PosGenerator;
 pub use self::tile::{Position, Tile};
 use crate::resources::{load_resources, AllResources};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{write, File};
@@ -32,14 +32,26 @@ struct GameData {
 #[derive(Debug)]
 pub struct Game {
     data: GameData,
-    pub buildings: AllBuildings,
-    pub resources: AllResources,
+    buildings: AllBuildings,
+    resources: AllResources,
     dep_tree: DependencyTree,
     //username, Generator
-    generators: HashMap<String, Generator>,
 }
 
+
 impl Game {
+    pub fn get_players(&self) -> &HashMap<String, Player> {
+        &self.data.players
+    }
+
+    pub fn get_buildings(&self) -> &AllBuildings {
+        &self.buildings
+    }
+
+    pub fn get_resources(&self) -> &AllResources {
+        &self.resources
+    }
+
     pub fn save(&self, path: PathBuf) -> Result<(), io::Error> {
         // create a save file with the current time as filename
         let now = SystemTime::now();
@@ -66,7 +78,6 @@ impl Game {
             buildings: buildings,
             dep_tree: tree,
             resources: load_resources(RESOURCES_PATH),
-            generators: HashMap::new(),
         })
     }
 
@@ -86,22 +97,21 @@ impl Game {
             buildings: buildings,
             dep_tree: tree,
             resources: load_resources(RESOURCES_PATH),
-            generators: HashMap::new(),
         }
     }
 
-    pub fn update(&mut self) -> () {
-        unimplemented!()
+    pub async fn update(&mut self) -> Result<()> {
+        self.generate().await?;
+        Ok(())
     }
 
-    pub fn generate(&mut self) -> Result<()> {
-        for (name, gen) in self.generators.iter() {}
+    pub async fn generate(&mut self) -> Result<()> {
+        for (name, player) in self.data.players.iter() {}
         Ok(())
     }
 
     pub fn remove_player(&mut self, player: &String) -> () {
         self.data.players.remove(player);
-        self.generators.remove(player);
     }
 
     //this for when a new player is added to the game, not to load one from the save (see Game::load)
@@ -110,7 +120,6 @@ impl Game {
             Err(anyhow!("Player {} already exists", player))
         } else {
             self.data.players.insert(player.to_string(), Player::new());
-            self.generators.insert(player, Generator::new());
             Ok(())
         }
     }

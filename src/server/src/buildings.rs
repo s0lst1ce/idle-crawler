@@ -8,6 +8,8 @@ pub type BuildingID = u8;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Building {
     pub name: String,
+    //whether the building extracts natural resources
+    pub extractor: bool,
     //Vector of the IDs of all buildings that the player must own to build this one
     pub prerequisites: Vec<BuildingID>,
     //resource_name, amount
@@ -20,6 +22,7 @@ pub struct Building {
 }
 
 pub type AllBuildings = HashMap<BuildingID, Building>;
+
 //all the buildings (value) using resource (key)
 pub type DependencyTree = HashMap<ResourceID, Vec<BuildingID>>;
 

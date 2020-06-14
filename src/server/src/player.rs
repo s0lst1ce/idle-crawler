@@ -1,6 +1,8 @@
-use crate::buildings::{AllBuildings, BuildingID, DependencyTree};
+use crate::buildings::{AllBuildings, Building, BuildingID, DependencyTree};
 use crate::resources::ResourceID;
 use crate::tile::Position;
+use crate::tile::Tile;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -32,6 +34,22 @@ pub struct OwnedBuilding {
     tiles: HashMap<Position, u32>,
 }
 
+impl OwnedBuilding {
+    fn new() -> OwnedBuilding {
+        OwnedBuilding {
+            total: 0,
+            workers: (0, 0),
+            tiles: HashMap::new(),
+        }
+    }
+}
+
+impl Default for OwnedBuilding {
+    fn default() -> Self {
+        OwnedBuilding::new()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Population {
     //here the definition in the repo requires a mapping (ie: HashMap) -> this makes it easier to build upon but less elegant
@@ -50,6 +68,10 @@ impl Population {
         }
     }
 }
+//ideally this GenMap would be stored in the player struct
+//however it shouldn't be savec in the JSON so it has to be saved eslewhere
+//unless a field can be omitted by serde that is
+pub type GenMap = HashMap<ResourceID, i32>;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Player {
@@ -58,16 +80,113 @@ pub struct Player {
     people: Population,
     //HashMap<"resource_name", Stockpile>
     resources: HashMap<ResourceID, Stockpile>,
+    #[serde(skip)]
+    gen: Generator,
 }
 
 impl Player {
     pub fn new() -> Player {
+        let mut buildings = HashMap::new();
+        buildings.insert(0, OwnedBuilding::new());
+
         Player {
             buildings: HashMap::new(),
             people: Population::new(),
             resources: HashMap::new(),
+            gen: Generator::new(),
         }
     }
+
+    pub fn max_buildable(
+        &self,
+        tiles: Vec<&Tile>,
+        id: BuildingID,
+        building: &Building,
+        amount: u32,
+    ) -> u32 {
+        let mut max = u32::MAX;
+
+        //if the building uses natural resources there must enough free slots
+        //otherwise the player can't place the building
+        if building.extractor {
+            max = 0;
+            for tile in tiles {
+                if let Some(res_type) = tile.resources.slots.get(&id) {
+                    max += res_type.total - res_type.used
+                }
+            }
+        }
+        for (resource, qt) in building.construction_cost.iter() {
+            max = max.min(self.resources.get(resource).unwrap().current / (qt * amount));
+        }
+        max
+    }
+
+    //Attempts to build `amount` `building` in `tile`.
+    //Fails if `amount` is too big (see max_buildable)
+    //It may be useful to allow tiles to be &HashMap<Position, Tile>.Position
+    //This way we could let the function choose the distribution of buildings over
+    //the tiles when it doesn't matter
+    pub fn try_build(
+        &mut self,
+        tiles: (&Position, &mut Tile),
+        id: BuildingID,
+        building: &Building,
+        amount: u32,
+    ) -> Result<()> {
+        if amount > self.max_buildable(vec![tiles.1], id, building, amount) {
+            return Err(anyhow!(format!(
+                "Can't build {:?} buildings of type ID{:?}, maximum is {:?}",
+                amount,
+                id,
+                self.max_buildable(vec![tiles.1], id, building, amount)
+            )));
+        }
+        self.add_building(*tiles.0, id, building, amount);
+        tiles.1.resources.slots.get_mut(&id).unwrap().used += amount;
+        Ok(())
+    }
+
+    //Adds `amount` building of type `buildings` to the `pos`. Expects enough slots to be free on the `pos`.
+    fn add_building(
+        &mut self,
+        pos: Position,
+        id: BuildingID,
+        building: &Building,
+        amount: u32,
+    ) -> () {
+        let ob = self.buildings.entry(id).or_default();
+        ob.total += amount;
+        ob.workers.1 += amount * building.max_workers;
+        *ob.tiles.entry(pos).or_default() += amount;
+    }
+
+    //Removes `amount` building of type `buildings` to the `pos`. Expects the player to own at least `amount` of `building`.
+    fn rm_building(
+        &mut self,
+        pos: &Position,
+        id: BuildingID,
+        building: &Building,
+        amount: u32,
+    ) -> () {
+        let ob = self.buildings.get_mut(&id).unwrap();
+        ob.total -= amount;
+        ob.workers.1 -= amount * building.max_workers;
+        *ob.tiles.get_mut(pos).unwrap() -= amount;
+    }
+
+    pub fn try_demolish(
+        &mut self,
+        tiles: (&Position, &mut Tile),
+        id: BuildingID,
+        building: &Building,
+        amount: u32,
+    ) -> Result<()> {
+        self.rm_building(tiles.0, id, building, amount);
+        tiles.1.resources.slots.get_mut(&id).unwrap().used -= amount;
+        Ok(())
+    }
+
     pub fn calc_ratios(
         &self,
         tree: &DependencyTree,
@@ -104,56 +223,55 @@ impl Player {
         }
         ratios
     }
+
     //true if one of the condition for a new ratios map is needed.
     //Here all we can now is whether the player has depleted a resource and efficiency needs to drop
     //The other conditions are: resource usage that cause a stockpile drop
     //and the construction/destruction of a building.
     //These **must** be checked so that the updates are consistent.
-    pub fn generate(&mut self, gen: &GenMap) -> bool {
-        let mut needs_change = false;
-        for (resource, amount) in gen.iter() {
+    pub fn generate(&mut self, all_buildings: &AllBuildings, tree: &DependencyTree) -> () {
+        if self.gen.needs_update {
+            self.gen.ratios = self.calc_ratios(tree, all_buildings);
+            self.gen.make_gen_map(all_buildings, &self.buildings);
+            self.gen.needs_update = false;
+        }
+        for (resource, amount) in self.gen.map.iter() {
             let mut crt = self.resources.entry(*resource).or_default();
             crt.current = crt.current.wrapping_add(*amount as u32);
 
             //checking if there enough resources for the next tick
             if *amount < 0 {
                 match self.resources.get(resource) {
-                    Some(x) if x.current < amount.abs() as u32 => needs_change = true,
+                    Some(x) if x.current < amount.abs() as u32 => self.gen.needs_update = true,
                     _ => (),
                 };
             };
         }
-
-        needs_change
     }
 }
 
-//ideally this GenMap would be stored in the player struct
-//however it shouldn't be savec in the JSON so it has to be saved eslewhere
-//unless a field can be omitted by serde that is
-pub type GenMap = HashMap<ResourceID, i32>;
-
 #[derive(Debug)]
 pub struct Generator {
-    map: Option<GenMap>,
-    ratios: Option<HashMap<BuildingID, f32>>,
+    needs_update: bool,
+    map: GenMap,
+    ratios: HashMap<BuildingID, f32>,
 }
 
 impl Generator {
     pub fn new() -> Generator {
         Generator {
-            map: None,
-            ratios: None,
+            map: GenMap::new(),
+            ratios: HashMap::new(),
+            needs_update: true,
         }
     }
     pub fn make_gen_map(
         &mut self,
         all_buildings: &AllBuildings,
         player_buildings: &HashMap<BuildingID, OwnedBuilding>,
-        ratios: &HashMap<BuildingID, f32>,
     ) -> () {
         let mut gen = GenMap::new();
-        for (building, ratio) in ratios.iter() {
+        for (building, ratio) in self.ratios.iter() {
             //adding resources produced per tick
             for (resource, amount) in all_buildings.get(building).unwrap().produced.iter() {
                 *gen.entry(*resource).or_insert(0) +=
@@ -167,7 +285,13 @@ impl Generator {
                         as i32;
             }
         }
-        self.map = Some(gen);
+        self.map = gen;
         ()
+    }
+}
+
+impl Default for Generator {
+    fn default() -> Self {
+        Generator::new()
     }
 }

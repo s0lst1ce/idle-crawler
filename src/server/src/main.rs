@@ -1,3 +1,6 @@
+use std::time::Duration;
+use tokio::select;
+use anyhow::{Result};
 use serde_json::Value;
 use serde_json;
 use std::collections::HashMap;
@@ -49,9 +52,14 @@ impl Server {
         Ok(())
     }
 
-    async fn run(mut self) -> Result<(), io::Error> {
+    async fn run(mut self, mut game: Game) -> Result<()> {
         loop {
-            self.update_once().await?
+            select!{
+            game.update().await?;
+            self.update_once().await?;
+            tokio::time::delay_for(Duration::new(1,0)).await;
+            }
+            println!("Players {:?}", game.get_players());
         }
     }
 }
@@ -64,8 +72,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let socket = UdpSocket::bind(&addr).await?;
     println!("Listening on: {}", socket.local_addr()?);
-    let game = Game::new(0);
-    println!("Resources: {:?}\nBuildings: {:?}", game.resources, game.buildings);
+    let mut game = Game::new(0);
+    println!("Resources: {:?}\nBuildings: {:?}", game.get_resources(), game.get_buildings());
+    game.add_player("Toude".to_string());
 
     let server = Server {
         socket,
@@ -74,7 +83,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     //running server
-    server.run().await?;
+    server.run(game).await?;
 
     Ok(())
 }
