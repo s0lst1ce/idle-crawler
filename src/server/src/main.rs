@@ -1,5 +1,6 @@
 use std::time::Duration;
 use tokio::select;
+use std::thread;
 use anyhow::{Result};
 use serde_json::Value;
 use serde_json;
@@ -9,7 +10,7 @@ use std::net::SocketAddr;
 use std::{env, io};
 use tokio;
 use tokio::net::UdpSocket;
-use server::{Position, Game};
+use server::{Position, Game, clock};
 
 
 const BUFFER_SIZE: usize = 1024;
@@ -52,17 +53,13 @@ impl Server {
         Ok(())
     }
 
-    async fn run(mut self, mut game: Game) -> Result<()> {
+    async fn run(mut self) -> Result<()> {
         loop {
-            select!{
-            game.update().await?;
             self.update_once().await?;
-            tokio::time::delay_for(Duration::new(1,0)).await;
-            }
-            println!("Players {:?}", game.get_players());
         }
     }
 }
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -72,9 +69,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let socket = UdpSocket::bind(&addr).await?;
     println!("Listening on: {}", socket.local_addr()?);
+    
+    //this is a DEV ONLY section that will need re-work
     let mut game = Game::new(0);
     println!("Resources: {:?}\nBuildings: {:?}", game.get_resources(), game.get_buildings());
-    game.add_player("Toude".to_string());
+    let p = game.add_player("Toude".to_string())?;
+    p.deposit(0, 100)?;
+    thread::spawn(move || {
+        let mut clock = clock::Clock::new(30);
+        loop {
+            game.update();
+            thread::sleep(clock.tick()); //the specific time should be handled by a clock
+            println!("Players {:?}", game.get_players());
+    }});
+
 
     let server = Server {
         socket,
@@ -83,7 +91,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     //running server
-    server.run(game).await?;
+    server.run().await?;
 
     Ok(())
 }

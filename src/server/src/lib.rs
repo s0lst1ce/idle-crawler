@@ -1,4 +1,5 @@
 mod buildings;
+pub mod clock;
 mod player;
 mod pos;
 mod resources;
@@ -37,7 +38,6 @@ pub struct Game {
     dep_tree: DependencyTree,
     //username, Generator
 }
-
 
 impl Game {
     pub fn get_players(&self) -> &HashMap<String, Player> {
@@ -100,12 +100,12 @@ impl Game {
         }
     }
 
-    pub async fn update(&mut self) -> Result<()> {
-        self.generate().await?;
+    pub fn update(&mut self) -> Result<()> {
+        self.generate()?;
         Ok(())
     }
 
-    pub async fn generate(&mut self) -> Result<()> {
+    pub fn generate(&mut self) -> Result<()> {
         for (name, player) in self.data.players.iter() {}
         Ok(())
     }
@@ -115,12 +115,12 @@ impl Game {
     }
 
     //this for when a new player is added to the game, not to load one from the save (see Game::load)
-    pub fn add_player(&mut self, player: String) -> Result<()> {
+    pub fn add_player(&mut self, player: String) -> Result<&mut Player> {
         if self.data.players.contains_key(&player) {
             Err(anyhow!("Player {} already exists", player))
         } else {
             self.data.players.insert(player.to_string(), Player::new());
-            Ok(())
+            Ok(self.data.players.get_mut(&player).unwrap())
         }
     }
 }
