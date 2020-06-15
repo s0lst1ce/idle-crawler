@@ -39,7 +39,7 @@ fn get_tree(buildings: &AllBuildings) -> DependencyTree {
     let mut tree: DependencyTree = HashMap::new();
     for (name, building) in buildings.iter() {
         for (resource, _) in building.consumed.iter() {
-            tree.entry(*resource).or_insert(Vec::new()).push(*name);
+            tree.entry(*resource).or_default().push(*name);
         }
     }
     tree

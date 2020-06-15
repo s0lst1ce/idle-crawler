@@ -127,7 +127,7 @@ impl Player {
     //It may be useful to allow tiles to be &HashMap<Position, Tile>.Position
     //This way we could let the function choose the distribution of buildings over
     //the tiles when it doesn't matter
-    pub fn try_build(
+    pub fn build(
         &mut self,
         tiles: (&Position, &mut Tile),
         id: BuildingID,
@@ -142,6 +142,7 @@ impl Player {
                 self.max_buildable(vec![tiles.1], id, building, amount)
             )));
         }
+        self.gen.needs_update = true;
         self.add_building(*tiles.0, id, building, amount);
         tiles.1.resources.slots.get_mut(&id).unwrap().used += amount;
         Ok(())
@@ -161,6 +162,29 @@ impl Player {
         *ob.tiles.entry(pos).or_default() += amount;
     }
 
+    //Attempts to tear down `amount` `building` in `tile`.
+    //Fails if `amount` is greater than the number of buildings owned by the player
+    //It may be useful to allow tiles to be &HashMap<Position, Tile>.Position
+    //This way we could let the function choose the distribution of buildings over
+    //the tiles when it doesn't matter
+    pub fn demolish(
+        &mut self,
+        tiles: (&Position, &mut Tile),
+        id: BuildingID,
+        building: &Building,
+        amount: u32,
+    ) -> Result<()> {
+        self.gen.needs_update = true;
+        self.rm_building(tiles.0, id, building, amount);
+        tiles.1.resources.slots.get_mut(&id).unwrap().used -= amount;
+        let mut workers = self.buildings.get_mut(&id).unwrap().workers;
+
+        //Adjusting workers count. Workers may need to be fired.
+        workers.0 -= (amount * building.max_workers) - (workers.1 - workers.0);
+        workers.1 -= amount * building.max_workers;
+        Ok(())
+    }
+
     //Removes `amount` building of type `buildings` to the `pos`. Expects the player to own at least `amount` of `building`.
     fn rm_building(
         &mut self,
@@ -175,19 +199,81 @@ impl Player {
         *ob.tiles.get_mut(pos).unwrap() -= amount;
     }
 
-    pub fn try_demolish(
-        &mut self,
-        tiles: (&Position, &mut Tile),
-        id: BuildingID,
-        building: &Building,
-        amount: u32,
-    ) -> Result<()> {
-        self.rm_building(tiles.0, id, building, amount);
-        tiles.1.resources.slots.get_mut(&id).unwrap().used -= amount;
-        Ok(())
+    //Adds `amount` of `id` resource to the player if enough place is available.
+    pub fn deposit(&mut self, id: ResourceID, amount: u32) -> Result<()> {
+        let mut stock = self.resources.get_mut(&id).unwrap();
+        if stock.maximum - stock.current < amount {
+            Err(
+                anyhow! {format!("Can't add more resources than available space in {:?} stockpile!", id)},
+            )
+        } else {
+            stock.current += amount;
+            self.gen.needs_update = true;
+            Ok(())
+        }
     }
 
-    pub fn calc_ratios(
+    //Removes `amount` of `id` resource to the player if enough is owned.
+    pub fn withdraw(&mut self, id: ResourceID, amount: u32) -> Result<()> {
+        let mut stock = self.resources.get_mut(&id).unwrap();
+        if stock.current < amount {
+            Err(anyhow! {format!("Can't remove more resource ID{:?} than the player owns!", id)})
+        } else {
+            stock.current -= amount;
+            self.gen.needs_update = true;
+            Ok(())
+        }
+    }
+
+    pub fn hire(&mut self, id: BuildingID, amount: u32) -> Result<()> {
+        match self.buildings.get_mut(&id) {
+            Some(ob) => {
+                if ob.workers.1 - ob.workers.0 < amount {
+                    Err(anyhow!(format!(
+                        "Tried to hire more workers than available jobs to building ID{:?}!",
+                        id
+                    )))
+                } else {
+                    ob.workers.0 += amount;
+                    self.gen.needs_update = true;
+                    Ok(())
+                }
+            }
+            None => Err(anyhow!(format!(
+                "Tried to add workers to building ID{:?} which the player does not own!",
+                id
+            ))),
+        }
+    }
+
+    pub fn fire(&mut self, id: BuildingID, amount: u32) -> Result<()> {
+        match self.buildings.get_mut(&id) {
+            Some(ob) => {
+                if ob.workers.0 < amount {
+                    Err(anyhow!(format!(
+                        "Tried to fire more workers than owned employees of building ID{:?}!",
+                        id
+                    )))
+                } else {
+                    ob.workers.0 -= amount;
+                    self.gen.needs_update = true;
+                    Ok(())
+                }
+            }
+            None => Err(anyhow!(format!(
+                "Tried to remove workers from building ID{:?} which the player does not own!",
+                id
+            ))),
+        }
+    }
+
+    //Creates a map witht the lowest factor at which the building can work.
+    //The key is the building and the value its current efficiency.
+    //The later is calculated from available resources
+    //and takes the production chain into account
+    //It needs to be ran everytime a resource's stockpile would reach 0 the next tick,
+    //when the player updates its buildings or uses/deposists resources
+    fn calc_ratios(
         &self,
         tree: &DependencyTree,
         all_buildings: &AllBuildings,
