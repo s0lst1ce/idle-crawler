@@ -1,7 +1,6 @@
-use crate::buildings::{AllBuildings, Building, BuildingID, DependencyTree};
+use crate::buildings::BuildingID;
 use crate::resources::ResourceID;
 use crate::tile::Position;
-use crate::tile::Tile;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -42,6 +41,7 @@ enum Event {
 
 #[derive(Debug, Deserialize, Serialize)]
 enum Error {
+    //related to player actions
     InsufficientResource(ResourceID),
     InsufficientSlot(BuildingID),
     InsufficientStockpile(ResourceID),

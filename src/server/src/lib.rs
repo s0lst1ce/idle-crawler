@@ -3,6 +3,7 @@ pub mod clock;
 mod player;
 mod pos;
 mod resources;
+pub mod response;
 mod tile;
 pub use self::buildings::{load_buildings, AllBuildings, Building, BuildingID, DependencyTree};
 pub use self::player::{Generator, Player};

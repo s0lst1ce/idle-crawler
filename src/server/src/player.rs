@@ -86,9 +86,6 @@ pub struct Player {
 
 impl Player {
     pub fn new() -> Player {
-        let mut buildings = HashMap::new();
-        buildings.insert(0, OwnedBuilding::new());
-
         Player {
             buildings: HashMap::new(),
             people: Population::new(),
@@ -97,6 +94,7 @@ impl Player {
         }
     }
 
+    //Retturns the maximum amount of buildings of the type `id` the player can currrently build.
     pub fn max_buildable(
         &self,
         tiles: Vec<&Tile>,
@@ -201,11 +199,12 @@ impl Player {
 
     //Adds `amount` of `id` resource to the player if enough place is available.
     pub fn deposit(&mut self, id: ResourceID, amount: u32) -> Result<()> {
-        let mut stock = self.resources.get_mut(&id).unwrap();
+        let mut stock = self.resources.entry(id).or_default();
         if stock.maximum - stock.current < amount {
-            Err(
-                anyhow! {format!("Can't add more resources than available space in {:?} stockpile!", id)},
-            )
+            Err(anyhow!(format!(
+                "Can't add more resources than available space in {:?} stockpile!",
+                id
+            )))
         } else {
             stock.current += amount;
             self.gen.needs_update = true;
@@ -217,7 +216,10 @@ impl Player {
     pub fn withdraw(&mut self, id: ResourceID, amount: u32) -> Result<()> {
         let mut stock = self.resources.get_mut(&id).unwrap();
         if stock.current < amount {
-            Err(anyhow! {format!("Can't remove more resource ID{:?} than the player owns!", id)})
+            Err(anyhow!(format!(
+                "Can't remove more resource ID{:?} than the player owns!",
+                id
+            )))
         } else {
             stock.current -= amount;
             self.gen.needs_update = true;
@@ -230,7 +232,7 @@ impl Player {
             Some(ob) => {
                 if ob.workers.1 - ob.workers.0 < amount {
                     Err(anyhow!(format!(
-                        "Tried to hire more workers than available jobs to building ID{:?}!",
+                        "Tried to hire more workers than available jobs for building ID{:?}!",
                         id
                     )))
                 } else {

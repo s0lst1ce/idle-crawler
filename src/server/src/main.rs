@@ -1,4 +1,3 @@
-pub mod response;
 use std::time::Duration;
 use tokio::select;
 use std::thread;
@@ -61,7 +60,6 @@ impl Server {
     }
 }
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let addr = env::args()
@@ -77,10 +75,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let p = game.add_player("Toude".to_string())?;
     p.deposit(0, 100)?;
     thread::spawn(move || {
+        let mut i = 0;
         let mut clock = clock::Clock::new(30);
         loop {
+            i+=1;
             game.update();
             thread::sleep(clock.tick()); //the specific time should be handled by a clock
+            println!("\nIteration {:?}", i);
             println!("Players {:?}", game.get_players());
     }});
 

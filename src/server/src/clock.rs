@@ -15,11 +15,11 @@ impl Clock {
     //This is truncated to the closest exact nanosecond duration.
     pub fn set_ups(&mut self, ups: u8) -> () {
         self.reset();
-        self.aim = (1 / ups) as u128 * 10e6 as u128;
+        self.aim = ((1.0 / ups as f64) * 1e9) as u128;
     }
 
     pub fn get_ups(&self) -> u8 {
-        (self.aim / 10e9 as u128) as u8
+        (self.aim / 1e9 as u128) as u8
     }
 
     fn reset(&mut self) -> () {
@@ -32,17 +32,17 @@ impl Clock {
         self.update_count += 1;
         self.average = match self.last_time {
             Some(instant) => {
-                self.last_time = Some(Instant::now());
-                self.average + ((instant.elapsed().as_nanos() - self.average) / self.update_count)
+                ((self.average * self.update_count + instant.elapsed().as_nanos()) - self.average)
+                    / self.update_count
             }
             None => self.aim,
         };
+        self.last_time = Some(Instant::now());
         //Ideally this convertion shouldn't be needed and but one type could be used.
-        Duration::from_nanos(
-            (self.average + (self.aim - self.average))
-                .try_into()
-                .unwrap(),
-        )
+        let d = Duration::from_nanos((2 * self.aim - self.average).try_into().expect(
+            "self.average is bigger than twice the aim causing an unexpected integer overflow!",
+        ));
+        d
     }
 
     pub fn pause(&mut self) -> () {
