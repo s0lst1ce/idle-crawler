@@ -1,5 +1,3 @@
-use std::time::Duration;
-use tokio::select;
 use std::thread;
 use anyhow::{Result};
 use serde_json::Value;
@@ -11,6 +9,7 @@ use std::{env, io};
 use tokio;
 use tokio::net::UdpSocket;
 use server::{Position, Game, clock};
+use server::response::{Response, Event, Exception};
 
 
 const BUFFER_SIZE: usize = 1024;
@@ -73,6 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut game = Game::new(0);
     println!("Resources: {:?}\nBuildings: {:?}", game.get_resources(), game.get_buildings());
     let p = game.add_player("Toude".to_string())?;
+    println!("An event in JSON:\n {:?}\n", serde_json::to_string(&Response::Event(Event::Hire{building: 0, amount: 3})));
     p.deposit(0, 30)?;
     p.hire(0, 2)?;
     println!("Toude {:?}", p);

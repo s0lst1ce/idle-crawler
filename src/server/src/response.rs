@@ -4,13 +4,13 @@ use crate::tile::Position;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
-enum Response {
-    Event,
-    Error,
+pub enum Response {
+    Event(Event),
+    Exception(Exception),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-enum Event {
+pub enum Event {
     Build {
         pos: Position,
         building: BuildingID,
@@ -40,7 +40,7 @@ enum Event {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-enum Error {
+pub enum Exception {
     //related to player actions
     InsufficientResource(ResourceID),
     InsufficientSlot(BuildingID),
