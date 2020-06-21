@@ -73,10 +73,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut game = Game::new(0);
     println!("Resources: {:?}\nBuildings: {:?}", game.get_resources(), game.get_buildings());
     let p = game.add_player("Toude".to_string())?;
-    p.deposit(0, 100)?;
+    p.deposit(0, 30)?;
+    p.hire(0, 2)?;
+    println!("Toude {:?}", p);
     thread::spawn(move || {
         let mut i = 0;
-        let mut clock = clock::Clock::new(30);
+        let mut clock = clock::Clock::new(1);
+        println!("Toude {:?}", game.get_players());
         loop {
             i+=1;
             game.update();

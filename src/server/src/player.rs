@@ -85,13 +85,16 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new() -> Player {
-        Player {
+    pub fn new(buildings: &AllBuildings) -> Player {
+        let mut p = Player {
             buildings: HashMap::new(),
             people: Population::new(),
             resources: HashMap::new(),
             gen: Generator::new(),
-        }
+        };
+        //testing only
+        p.add_building(Position { x: 0, y: 0 }, 0, buildings.get(&0).unwrap(), 1);
+        p
     }
 
     //Retturns the maximum amount of buildings of the type `id` the player can currrently build.
@@ -275,13 +278,23 @@ impl Player {
     //and takes the production chain into account
     //It needs to be ran everytime a resource's stockpile would reach 0 the next tick,
     //when the player updates its buildings or uses/deposists resources
+    //WARN: I think I forgot to take the prod of the other buildings into account ^^
+    //WARN: It doesn't have a high impact but may reduce perfs on low resources.
     fn calc_ratios(
         &self,
         tree: &DependencyTree,
         all_buildings: &AllBuildings,
     ) -> HashMap<BuildingID, f32> {
         let mut ratios: HashMap<BuildingID, f32> = HashMap::new();
-        for (resource, depends) in tree.iter() {
+        println!("Tree: {:?}", tree);
+        //We set buildings which don't consume resources to their optimal efficiency.
+        for building_id in tree.1.iter() {
+            ratios.insert(*building_id, 1.0_f32);
+        }
+
+        //We calculate the maximal efficiency of all buildings which consume resources.
+        for (resource, depends) in tree.0.iter() {
+            //the total amount of `resource` needed by the player's empire
             let mut needed = 0.0;
             for building_id in depends.iter() {
                 needed += (all_buildings
@@ -322,10 +335,10 @@ impl Player {
             self.gen.ratios = self.calc_ratios(tree, all_buildings);
             self.gen.make_gen_map(all_buildings, &self.buildings);
             self.gen.needs_update = false;
-        }
+        };
         for (resource, amount) in self.gen.map.iter() {
             let mut crt = self.resources.entry(*resource).or_default();
-            crt.current = crt.current.wrapping_add(*amount as u32);
+            crt.current = crt.current.wrapping_add(*amount as u32).min(crt.maximum);
 
             //checking if there enough resources for the next tick
             if *amount < 0 {
@@ -359,22 +372,22 @@ impl Generator {
         player_buildings: &HashMap<BuildingID, OwnedBuilding>,
     ) -> () {
         let mut gen = GenMap::new();
-        for (building, ratio) in self.ratios.iter() {
+        for (building, _) in player_buildings.iter() {
             //adding resources produced per tick
             for (resource, amount) in all_buildings.get(building).unwrap().produced.iter() {
                 *gen.entry(*resource).or_insert(0) +=
-                    ((*amount * player_buildings.get(building).unwrap().workers.0) as f32 * *ratio)
-                        as i32;
+                    ((*amount * player_buildings.get(building).unwrap().workers.0) as f32
+                        * self.ratios.get(building).unwrap()) as i32;
             }
             //substracting resources consumed per tick
             for (resource, amount) in all_buildings.get(building).unwrap().consumed.iter() {
                 *gen.entry(*resource).or_insert(0) -=
-                    ((*amount * player_buildings.get(building).unwrap().workers.0) as f32 * *ratio)
-                        as i32;
+                    ((*amount * player_buildings.get(building).unwrap().workers.0) as f32
+                        * self.ratios.get(building).unwrap()) as i32;
             }
         }
-        self.map = gen;
-        ()
+
+        self.map = gen
     }
 }
 

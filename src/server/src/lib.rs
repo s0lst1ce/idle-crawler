@@ -107,7 +107,9 @@ impl Game {
     }
 
     pub fn generate(&mut self) -> Result<()> {
-        for (name, player) in self.data.players.iter() {}
+        for (_name, player) in self.data.players.iter_mut() {
+            player.generate(&self.buildings, &self.dep_tree);
+        }
         Ok(())
     }
 
@@ -120,7 +122,9 @@ impl Game {
         if self.data.players.contains_key(&player) {
             Err(anyhow!("Player {} already exists", player))
         } else {
-            self.data.players.insert(player.to_string(), Player::new());
+            self.data
+                .players
+                .insert(player.to_string(), Player::new(&self.buildings)); //we only give the buildings for testing purposes
             Ok(self.data.players.get_mut(&player).unwrap())
         }
     }
