@@ -1,4 +1,5 @@
 use crate::buildings::BuildingID;
+use crate::player::Username;
 use crate::resources::ResourceID;
 use crate::tile::Position;
 use serde::{Deserialize, Serialize};
@@ -37,6 +38,7 @@ pub enum Event {
         resource: ResourceID,
         amount: u32,
     },
+    Discover,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -45,6 +47,8 @@ pub enum Exception {
     InsufficientResource(ResourceID),
     InsufficientSlot(BuildingID),
     InsufficientStockpile(ResourceID),
+    NotFound,
+    PlaceHolder,
 
     //auth errors
     InvalidToken,

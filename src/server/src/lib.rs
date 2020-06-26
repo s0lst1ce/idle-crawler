@@ -6,10 +6,11 @@ mod resources;
 pub mod response;
 mod tile;
 pub use self::buildings::{load_buildings, AllBuildings, Building, BuildingID, DependencyTree};
-pub use self::player::{Generator, Player};
+pub use self::player::{Generator, Player, Username};
 pub use self::pos::PosGenerator;
+pub use self::resources::{load_resources, AllResources, ResourceID};
+pub use self::response::{Event, Exception, Response};
 pub use self::tile::{Position, Tile};
-use crate::resources::{load_resources, AllResources};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -26,8 +27,7 @@ const RESOURCES_PATH: &str = "../../utilities/resources.json";
 struct GameData {
     //we need to make sure they stay ordered to enable correct behavior of PosGenerator
     world: HashMap<Position, Tile>,
-    //HashMap<"username", Player>
-    players: HashMap<String, Player>,
+    players: HashMap<Username, Player>,
     pos_gen: PosGenerator,
 }
 
@@ -41,7 +41,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn get_players(&self) -> &HashMap<String, Player> {
+    pub fn get_players(&self) -> &HashMap<Username, Player> {
         &self.data.players
     }
 
@@ -113,12 +113,12 @@ impl Game {
         Ok(())
     }
 
-    pub fn remove_player(&mut self, player: &String) -> () {
+    pub fn remove_player(&mut self, player: &Username) -> () {
         self.data.players.remove(player);
     }
 
     //this for when a new player is added to the game, not to load one from the save (see Game::load)
-    pub fn add_player(&mut self, player: String) -> Result<&mut Player> {
+    pub fn add_player(&mut self, player: Username) -> Result<&mut Player> {
         if self.data.players.contains_key(&player) {
             Err(anyhow!("Player {} already exists", player))
         } else {
@@ -126,6 +126,79 @@ impl Game {
                 .players
                 .insert(player.to_string(), Player::new(&self.buildings)); //we only give the buildings for testing purposes
             Ok(self.data.players.get_mut(&player).unwrap())
+        }
+    }
+
+    ///Processes player action events.
+    //This method expects that the username exists. Panics otherwise.
+    //The username should be provided by the binary (not the lib) and determined by the socket address.
+    pub fn process(&mut self, username: &Username, event: Event) -> Option<Exception> {
+        let player = self.data.players.get_mut(username).unwrap();
+        match event {
+            Event::Build {
+                pos,
+                building,
+                amount,
+            } => {
+                if let Err(_) = player.build(
+                    (&pos, self.data.world.get_mut(&pos).unwrap()),
+                    building,
+                    self.buildings.get(&building).unwrap(),
+                    amount,
+                ) {
+                    //WARN:: this is a placeholder, the actual exception may be different but there's currently no way of determinning it.
+                    return Some(Exception::PlaceHolder);
+                } else {
+                    None
+                }
+            }
+
+            Event::Demolish {
+                pos,
+                building,
+                amount,
+            } => {
+                if let Err(_) = player.demolish(
+                    (&pos, self.data.world.get_mut(&pos).unwrap()),
+                    building,
+                    self.buildings.get(&building).unwrap(),
+                    amount,
+                ) {
+                    //WARN:: this is a placeholder, the actual exception may be different but there's currently no way of determinning it.
+                    return Some(Exception::PlaceHolder);
+                } else {
+                    None
+                }
+            }
+            Event::Hire { building, amount } => {
+                if let Err(_) = player.hire(building, amount) {
+                    return Some(Exception::PlaceHolder);
+                } else {
+                    None
+                }
+            }
+            Event::Fire { building, amount } => {
+                if let Err(_) = player.fire(building, amount) {
+                    return Some(Exception::PlaceHolder);
+                } else {
+                    None
+                }
+            }
+            Event::Deposit { resource, amount } => {
+                if let Err(_) = player.deposit(resource, amount) {
+                    Some(Exception::PlaceHolder)
+                } else {
+                    None
+                }
+            }
+            Event::Withdraw { resource, amount } => {
+                if let Err(_) = player.withdraw(resource, amount) {
+                    return Some(Exception::PlaceHolder);
+                } else {
+                    None
+                }
+            }
+            Event::Discover => unimplemented!()
         }
     }
 }

@@ -1,7 +1,10 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
-pub type ResourceID = u8;
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ResourceID(pub u8);
+
 pub type ResourceName = String;
 pub type AllResources = HashMap<ResourceID, ResourceName>;
 

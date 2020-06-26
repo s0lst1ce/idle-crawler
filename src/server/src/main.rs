@@ -1,3 +1,4 @@
+use tokio::net::lookup_host;
 use std::thread;
 use anyhow::{Result};
 use serde_json::Value;
@@ -8,10 +9,11 @@ use std::net::SocketAddr;
 use std::{env, io};
 use tokio;
 use tokio::net::UdpSocket;
-use server::{Position, Game, clock};
+use server::{Position, Game, clock, ResourceID, BuildingID};
 use server::response::{Response, Event, Exception};
 
 
+//How should I determine the size of the buffer? By calculating the size of the largest event (Build)
 const BUFFER_SIZE: usize = 1024;
 
 
@@ -38,17 +40,17 @@ struct Server {
 }
 
 impl Server {
-    async fn poll(&mut self) -> Result<(), io::Error> {
+    async fn poll(&mut self) -> Result<(SocketAddr, Response), io::Error> {
         //writing the data when available
         let (read_to, client_addr) = self.socket.recv_from(&mut self.buf).await?;
         //making sure the data is valid json
-        let data: Value = serde_json::from_slice(&self.buf[..read_to])?;
-        println!("Received JSON: {:?}", data);
-        //self.clients.entry(client_addr).or_insert(Client::new()).pending = Some(data);
-        Ok(())
+        let response: Response = serde_json::from_slice(&self.buf[..read_to])?;
+        println!("Received JSON: {:?}", response);
+        //self.clients.entry(client_addr).or_insert(Client::new()).pending = Some(reponse);
+        Ok((client_addr, response))
     }
     async fn update_once(&mut self) -> Result<(), io::Error> {
-        self.poll().await?;
+        let (addr, response) = self.poll().await?;
         Ok(())
     }
 
@@ -72,9 +74,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut game = Game::new(0);
     println!("Resources: {:?}\nBuildings: {:?}", game.get_resources(), game.get_buildings());
     let p = game.add_player("Toude".to_string())?;
-    println!("An event in JSON:\n {:?}\n", serde_json::to_string(&Response::Event(Event::Hire{building: 0, amount: 3})));
-    p.deposit(0, 30)?;
-    p.hire(0, 2)?;
+    println!("An event in JSON:\n {:?}\n", serde_json::to_string(&Response::Event(Event::Hire{building: BuildingID(0), amount: 3})));
+    p.deposit(ResourceID(0), 30)?;
+    p.hire(BuildingID(0), 2)?;
     println!("Toude {:?}", p);
     thread::spawn(move || {
         let mut i = 0;
@@ -83,7 +85,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         loop {
             i+=1;
             game.update();
-            thread::sleep(clock.tick()); //the specific time should be handled by a clock
+            thread::sleep(clock.tick());
             println!("\nIteration {:?}", i);
             println!("Players {:?}", game.get_players());
     }});

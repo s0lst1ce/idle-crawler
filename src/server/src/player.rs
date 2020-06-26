@@ -1,10 +1,13 @@
 use crate::buildings::{AllBuildings, Building, BuildingID, DependencyTree};
 use crate::resources::ResourceID;
+use crate::response::Response;
 use crate::tile::Position;
 use crate::tile::Tile;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+pub type Username = String;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Stockpile {
@@ -80,6 +83,10 @@ pub struct Player {
     people: Population,
     //HashMap<"resource_name", Stockpile>
     resources: HashMap<ResourceID, Stockpile>,
+    //every other player the player is able to communicate with and the number of tiles they share.
+    //The entry should be deleted when the count reaches 0
+    contacts: HashMap<Username, u32>,
+    lands: Vec<Position>,
     #[serde(skip)]
     gen: Generator,
 }
@@ -90,14 +97,21 @@ impl Player {
             buildings: HashMap::new(),
             people: Population::new(),
             resources: HashMap::new(),
+            contacts: HashMap::new(),
+            lands: Vec::new(),
             gen: Generator::new(),
         };
         //testing only
-        p.add_building(Position { x: 0, y: 0 }, 0, buildings.get(&0).unwrap(), 1);
+        p.add_building(
+            Position { x: 0, y: 0 },
+            BuildingID(0),
+            buildings.get(&BuildingID(0)).unwrap(),
+            1,
+        );
         p
     }
 
-    //Retturns the maximum amount of buildings of the type `id` the player can currrently build.
+    //Re1turns the maximum amount of buildings of the type `id` the player can currrently build.
     pub fn max_buildable(
         &self,
         tiles: Vec<&Tile>,
@@ -176,6 +190,10 @@ impl Player {
         amount: u32,
     ) -> Result<()> {
         self.gen.needs_update = true;
+        //making sure the player owns at least one of these buildings
+        if self.buildings.get(&id).unwrap().total < amount {
+            return Err(anyhow!("Can't demolish more buildings than owned!"));
+        };
         self.rm_building(tiles.0, id, building, amount);
         tiles.1.resources.slots.get_mut(&id).unwrap().used -= amount;
         let mut workers = self.buildings.get_mut(&id).unwrap().workers;
