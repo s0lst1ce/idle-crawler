@@ -24,7 +24,7 @@ pub struct Slots {
 
 ///Tracks players resources and expansion options.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PlayerResources {
+pub struct TileResouces {
     //HashMap<"building_name", [u8;2]>
     pub slots: HashMap<BuildingID, Slots>,
     //HashMap<"resource_name", u32>
@@ -34,9 +34,9 @@ pub struct PlayerResources {
 ///The basemost spacial unit. Contains raw resources ready to be extracted.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Tile {
-    pub resources: PlayerResources,
+    pub resources: TileResouces,
     //Vec<"username">
-    players: Vec<String>,
+    pub players: Vec<String>,
 }
 
 impl Tile {
@@ -45,7 +45,7 @@ impl Tile {
         let mut slots = HashMap::new();
         slots.insert("iron_mine", [2, 5]);
         Tile {
-            resources: PlayerResources {
+            resources: TileResouces {
                 slots: HashMap::new(),
                 amounts: HashMap::new(),
             },

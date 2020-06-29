@@ -2,6 +2,7 @@ use crate::buildings::BuildingID;
 use crate::player::Username;
 use crate::resources::ResourceID;
 use crate::tile::Position;
+use crate::tile::Tile;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -12,6 +13,18 @@ pub enum Response {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Event {
+    Action(Action),
+    World(World),
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum World {
+    GetTile(Position),
+    Tile(Tile),
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum Action {
     Build {
         pos: Position,
         building: BuildingID,
@@ -38,17 +51,19 @@ pub enum Event {
         resource: ResourceID,
         amount: u32,
     },
-    Discover,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Exception {
-    //related to player actions
+    PlaceHolder,
+    //related to player Action
     InsufficientResource(ResourceID),
     InsufficientSlot(BuildingID),
     InsufficientStockpile(ResourceID),
     NotFound,
-    PlaceHolder,
+
+    //world exploration
+    TileNotOwned(Position),
 
     //auth errors
     InvalidToken,

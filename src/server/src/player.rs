@@ -1,6 +1,5 @@
 use crate::buildings::{AllBuildings, Building, BuildingID, DependencyTree};
 use crate::resources::ResourceID;
-use crate::response::Response;
 use crate::tile::Position;
 use crate::tile::Tile;
 use anyhow::{anyhow, Result};
@@ -10,7 +9,7 @@ use std::collections::HashMap;
 pub type Username = String;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Stockpile {
+pub struct Stockpile {
     current: u32,
     maximum: u32,
 }
@@ -21,6 +20,11 @@ impl Stockpile {
             current: 0,
             maximum: 100,
         }
+    }
+
+    //used to assert that Stockpile won't be mutated outside player yet can give info
+    pub fn see(&self) -> [u32; 2] {
+        [self.current, self.maximum]
     }
 }
 
@@ -82,7 +86,7 @@ pub struct Player {
     buildings: HashMap<BuildingID, OwnedBuilding>,
     people: Population,
     //HashMap<"resource_name", Stockpile>
-    resources: HashMap<ResourceID, Stockpile>,
+    pub resources: HashMap<ResourceID, Stockpile>,
     //every other player the player is able to communicate with and the number of tiles they share.
     //The entry should be deleted when the count reaches 0
     contacts: HashMap<Username, u32>,
@@ -106,6 +110,12 @@ impl Player {
             Position { x: 0, y: 0 },
             BuildingID(0),
             buildings.get(&BuildingID(0)).unwrap(),
+            1,
+        );
+        p.add_building(
+            Position { x: 0, y: 0 },
+            BuildingID(1),
+            buildings.get(&BuildingID(1)).unwrap(),
             1,
         );
         p
@@ -184,18 +194,18 @@ impl Player {
     //the tiles when it doesn't matter
     pub fn demolish(
         &mut self,
-        tiles: (&Position, &mut Tile),
+        (pos, tile): (&Position, &mut Tile),
         id: BuildingID,
         building: &Building,
         amount: u32,
     ) -> Result<()> {
         self.gen.needs_update = true;
-        //making sure the player owns at least one of these buildings
+        //making sure the player owns enough buildings
         if self.buildings.get(&id).unwrap().total < amount {
             return Err(anyhow!("Can't demolish more buildings than owned!"));
         };
-        self.rm_building(tiles.0, id, building, amount);
-        tiles.1.resources.slots.get_mut(&id).unwrap().used -= amount;
+        self.rm_building(pos, id, building, amount);
+        tile.resources.slots.get_mut(&id).unwrap().used -= amount;
         let mut workers = self.buildings.get_mut(&id).unwrap().workers;
 
         //Adjusting workers count. Workers may need to be fired.

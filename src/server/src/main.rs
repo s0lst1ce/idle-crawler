@@ -10,7 +10,7 @@ use std::{env, io};
 use tokio;
 use tokio::net::UdpSocket;
 use server::{Position, Game, clock, ResourceID, BuildingID};
-use server::response::{Response, Event, Exception};
+use server::response::{Response, Event, Exception, Action};
 
 
 //How should I determine the size of the buffer? By calculating the size of the largest event (Build)
@@ -74,9 +74,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut game = Game::new(0);
     println!("Resources: {:?}\nBuildings: {:?}", game.get_resources(), game.get_buildings());
     let p = game.add_player("Toude".to_string())?;
-    println!("An event in JSON:\n {:?}\n", serde_json::to_string(&Response::Event(Event::Hire{building: BuildingID(0), amount: 3})));
+    println!("An event in JSON:\n {:?}\n", serde_json::to_string(&Response::Event(Event::Action(Action::Hire{building: BuildingID(0), amount: 3}))));
     p.deposit(ResourceID(0), 30)?;
     p.hire(BuildingID(0), 2)?;
+    p.hire(BuildingID(1), 1)?;
     println!("Toude {:?}", p);
     thread::spawn(move || {
         let mut i = 0;

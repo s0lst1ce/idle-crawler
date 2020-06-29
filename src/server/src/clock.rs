@@ -25,7 +25,7 @@ use std::time::{Duration, Instant};
 ///# let mut counter = 2;
 ///let mut clock = Clock::new(30); //we set clock to run at 30 Updates Per Second (UPS)
 ///loop {
-///# counter -= 1; 
+///# counter -= 1;
 /// //update the game
 /// thread::sleep(clock.tick());
 ///# if counter == 0 {break;}
@@ -45,7 +45,7 @@ impl Clock {
     /// UPS are Updates Per Second, so if you want 30 of them the average time of a tick will be 0.03s.
     ///
     /// # Example
-    /// 
+    ///
     /// ```
     ///# use server::clock::Clock;
     ///# use std::time::Duration;
@@ -121,7 +121,6 @@ impl Clock {
         c
     }
 }
-
 
 #[cfg(test)]
 mod tests {
