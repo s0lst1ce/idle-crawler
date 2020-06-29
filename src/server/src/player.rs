@@ -96,6 +96,7 @@ pub struct Player {
 }
 
 impl Player {
+    ///Creates a new player. Later needs to be registered into GameData.
     pub fn new(buildings: &AllBuildings) -> Player {
         let mut p = Player {
             buildings: HashMap::new(),
@@ -147,8 +148,8 @@ impl Player {
         max
     }
 
-    //Attempts to build `amount` `building` in `tile`.
-    //Fails if `amount` is too big (see max_buildable)
+    ///Attempts to build `amount` `building` in `tile`.
+    ///Fails if `amount` is too big (see max_buildable)
     //It may be useful to allow tiles to be &HashMap<Position, Tile>.Position
     //This way we could let the function choose the distribution of buildings over
     //the tiles when it doesn't matter
