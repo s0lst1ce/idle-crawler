@@ -9,8 +9,8 @@ use std::net::SocketAddr;
 use std::{env, io};
 use tokio;
 use tokio::net::UdpSocket;
-use server::{Position, Game, clock, ResourceID, BuildingID};
-use server::response::{Response, Event, Exception, Action};
+use core::{Position, Game, clock, ResourceID, BuildingID};
+use core::response::{Response, Event, Exception, Action};
 
 
 //How should I determine the size of the buffer? By calculating the size of the largest event (Build)

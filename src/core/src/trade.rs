@@ -3,19 +3,20 @@ use crate::ResourceID;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ResourceEntry {
-    id: ResourceID,
-    amount: u32,
+pub struct ResourceEntry {
+    pub id: ResourceID,
+    pub amount: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Offer {
-    offering: Vec<ResourceEntry>,
-    requesting: Vec<ResourceEntry>,
+pub struct Offer {
+    pub offering: Vec<ResourceEntry>,
+    pub requesting: Vec<ResourceEntry>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Trade {
-    from: Username,
-    offer: Offer,
+pub struct Trade {
+    pub from: Username,
+    pub to: Username,
+    pub offer: Offer,
 }

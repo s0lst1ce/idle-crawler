@@ -90,6 +90,7 @@ pub struct Player {
     //every other player the player is able to communicate with and the number of tiles they share.
     //The entry should be deleted when the count reaches 0
     contacts: HashMap<Username, u32>,
+    //all tiles the player has built on are considered part of its territory. Thus tiles may be owned by more than 1 player.
     lands: Vec<Position>,
     #[serde(skip)]
     gen: Generator,

@@ -1,8 +1,7 @@
 use crate::buildings::BuildingID;
-use crate::player::Username;
 use crate::resources::ResourceID;
-use crate::tile::Position;
-use crate::tile::Tile;
+use crate::tile::{Position, Tile};
+use crate::trade::Trade;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -16,6 +15,8 @@ pub enum Response {
 pub enum Event {
     Action(Action),
     World(World),
+    //currently only supports simple trades
+    Trade(Trade),
 }
 
 ///Events affecting the world.
@@ -47,7 +48,7 @@ pub enum Action {
     },
     ///Adding workers to the player's building. Refer to `Player::hire`
     Hire { building: BuildingID, amount: u32 },
-    ///Remove workers from the player's building. Refer to `Player::hire`
+    ///Remove workers from the player's building. Refer to `Player::fire`
     Fire { building: BuildingID, amount: u32 },
     ///Add resources to the player. Refer to `Player::deposit`
     Deposit { resource: ResourceID, amount: u32 },
