@@ -76,7 +76,7 @@ impl Population {
     }
 }
 //ideally this GenMap would be stored in the player struct
-//however it shouldn't be savec in the JSON so it has to be saved eslewhere
+//however it shouldn't be saved in the JSON so it has to be saved eslewhere
 //unless a field can be omitted by serde that is
 pub type GenMap = HashMap<ResourceID, i32>;
 
@@ -121,7 +121,7 @@ impl Player {
         p
     }
 
-    //Re1turns the maximum amount of buildings of the type `id` the player can currrently build.
+    //Returns the maximum amount of buildings of the type `id` the player can currrently build.
     pub fn max_buildable(
         &self,
         tiles: Vec<&Tile>,

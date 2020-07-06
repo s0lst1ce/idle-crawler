@@ -1,2 +1,5 @@
 *.lock
 *target/
+
+# JetBrains target files
+*idea/
