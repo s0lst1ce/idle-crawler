@@ -1,7 +1,8 @@
 use crate::buildings::BuildingID;
+use crate::player::Username;
 use crate::resources::ResourceID;
 use crate::tile::{Position, Tile};
-use crate::trade::Trade;
+use crate::trade::Offer;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -16,7 +17,11 @@ pub enum Event {
     Action(Action),
     World(World),
     //currently only supports simple trades
-    Trade(Trade),
+    Trade {
+        from: Username,
+        to: Username,
+        offer: Offer,
+    },
 }
 
 ///Events affecting the world.
