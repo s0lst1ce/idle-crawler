@@ -1,7 +1,7 @@
 language: rust
 script:
-  - cd test && cargo build --verbose --all
-  - cd test && cargo test --verbose --all
+  - cd src && cargo build --verbose --all
+  - cd src && cargo test --verbose --all
 rust:
   - stable
   - beta
