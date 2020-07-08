@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 /// Using the clock to make sure each tick takes in average 1/30s.
 ///```
 ///# use std::thread;
-///# use server::clock::Clock;
+///# use core::clock::Clock;
 ///# let mut counter = 2;
 ///let mut clock = Clock::new(30); //we set clock to run at 30 Updates Per Second (UPS)
 ///loop {
@@ -47,7 +47,7 @@ impl Clock {
     /// # Example
     ///
     /// ```
-    ///# use server::clock::Clock;
+    ///# use core::clock::Clock;
     ///# use std::time::Duration;
     ///# let mut clock = Clock::new(1);
     /// clock.set_ups(10);
@@ -98,7 +98,7 @@ impl Clock {
     /// We pause the clock. Note that the first `tick` call resuming the clock will always be exactly equal to the targeted tick time.
     /// ```
     ///# use std::thread;
-    ///# use server::clock::Clock;
+    ///# use core::clock::Clock;
     ///# use std::time::Duration;
     ///# let mut clock = Clock::new(10);
     /// clock.pause();
