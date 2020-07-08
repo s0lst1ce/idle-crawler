@@ -1,4 +1,7 @@
 language: rust
+script:
+  - cd src && cargo build --verbose --all
+  - cargo test --verbose --all
 rust:
   - stable
   - beta
@@ -8,11 +11,4 @@ jobs:
   allow_failure:
     - rust: nightly
   fast_finish: true
-  include:
-    - name: Build
-      script: cd src && cargo build --all
-
-    - name: Test
-      script: cargo test --verbose --all
-
 cache: cargo
