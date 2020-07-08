@@ -6,6 +6,9 @@ use crate::trade::Offer;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct Token(u32);
+
+#[derive(Debug, Deserialize, Serialize)]
 pub enum Response {
     Event(Event),
     Exception(Exception),
@@ -22,6 +25,15 @@ pub enum Event {
         to: Username,
         offer: Offer,
     },
+    Auth(Auth),
+}
+
+///Events linked to authentification
+#[derive(Debug, Deserialize, Serialize)]
+pub enum Auth {
+    Login(Username, Token),
+    Register(Username),
+    NewToken(Token),
 }
 
 ///Events affecting the world.
