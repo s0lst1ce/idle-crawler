@@ -1,5 +1,5 @@
-use server::{Game, AllBuildings};
-use server::Player;
+use core::{Game, AllBuildings};
+use core::Player;
 
 fn main() {
 
