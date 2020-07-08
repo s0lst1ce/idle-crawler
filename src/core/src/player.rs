@@ -72,7 +72,7 @@ impl Population {
     }
 }
 //ideally this GenMap would be stored in the player struct
-//however it shouldn't be saved in the JSON so it has to be saved eslewhere
+//however it shouldn't be saved in the JSON so it has to be saved elsewhere
 //unless a field can be omitted by serde that is
 pub type GenMap = HashMap<ResourceID, i32>;
 

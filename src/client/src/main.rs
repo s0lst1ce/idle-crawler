@@ -1,3 +1,11 @@
+use server::{Game, AllBuildings};
+use server::Player;
+
 fn main() {
-    println!("Hello, world!");
+
+    let mut game = Game::new(0);
+    game.add_player(String::from("Player1"));
+
+    println!("Game object with 1 player:\n{:#?}", game);
+
 }
