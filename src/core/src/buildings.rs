@@ -8,19 +8,24 @@ use std::path::Path;
 pub struct BuildingID(pub u8);
 
 ///Core component of a player's empire. Generates its resources.
+///
+/// This is more of a "template" than a building as conceived by the user.
+/// Mainly be used to determine the potency of a Player building.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Building {
+    ///Name of the building. Used to enlighten the player as to the building's purpose.
     pub name: String,
-    //whether the building extracts natural resources
+    /// True if it extracts raw resources from Tile resource patches.
     pub extractor: bool,
-    //Vector of the IDs of all buildings that the player must own to build this one
+    /// All buildings that must be uncloked before this one.
     pub prerequisites: Vec<BuildingID>,
-    //resource_name, amount
+    /// The resources produced by the buidling.
     pub produced: HashMap<ResourceID, u32>,
-    //resource_name, amount
+    /// The resources consumed by the building.
     pub consumed: HashMap<ResourceID, u32>,
+    /// The maximum number of workers the building can hire.
     pub max_workers: u32,
-    //resource_name, amount
+    /// Resources used to create the building.
     pub construction_cost: HashMap<ResourceID, u32>,
 }
 
@@ -60,6 +65,13 @@ impl DependencyTree {
     }
 }
 
+/// Abstracts data into rust structs
+///
+/// This method depends on the data crate. The later provides the game data that
+/// determines the options given to the player.
+///
+/// To keep it easy to maintain and assert interoperability the data is in JSON
+/// and abstracted into rust structs by this method.
 pub fn load_buildings<P: AsRef<Path>>(path: P) -> (AllBuildings, DependencyTree) {
     let file = std::fs::read(path).expect("couldn't read buildings.json");
     let data: AllBuildings =

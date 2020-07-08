@@ -2,6 +2,7 @@ use crate::buildings::{AllBuildings, Building, BuildingID, DependencyTree};
 use crate::resources::ResourceID;
 use crate::tile::Position;
 use crate::tile::Tile;
+use crate::trade::{Ledger, Offer, ResourceEntry};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -20,11 +21,6 @@ impl Stockpile {
             current: 0,
             maximum: 100,
         }
-    }
-
-    //used to assert that Stockpile won't be mutated outside player yet can give info
-    pub fn see(&self) -> [u32; 2] {
-        [self.current, self.maximum]
     }
 }
 
@@ -80,6 +76,13 @@ impl Population {
 //unless a field can be omitted by serde that is
 pub type GenMap = HashMap<ResourceID, i32>;
 
+/// Only interface to interact with an in-game player.
+///
+/// This is the most important struct of the game. It contains the player's empire
+/// but also its trades, and generation maps. It is responsible for generating the player's
+/// resources.
+///
+/// Most actions undertaken by the user will channel through this very struct.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Player {
     //HashMap<"building_name", OwnedBuilding>
@@ -90,12 +93,15 @@ pub struct Player {
     //every other player the player is able to communicate with and the number of tiles they share.
     //The entry should be deleted when the count reaches 0
     contacts: HashMap<Username, u32>,
+    //all tiles the player has built on are considered part of its territory. Thus tiles may be owned by more than 1 player.
     lands: Vec<Position>,
+    trades: Ledger,
     #[serde(skip)]
     gen: Generator,
 }
 
 impl Player {
+    ///Creates a new player. Later needs to be registered into GameData.
     pub fn new(buildings: &AllBuildings) -> Player {
         let mut p = Player {
             buildings: HashMap::new(),
@@ -103,6 +109,7 @@ impl Player {
             resources: HashMap::new(),
             contacts: HashMap::new(),
             lands: Vec::new(),
+            trades: Ledger::new(),
             gen: Generator::new(),
         };
         //testing only
@@ -147,8 +154,8 @@ impl Player {
         max
     }
 
-    //Attempts to build `amount` `building` in `tile`.
-    //Fails if `amount` is too big (see max_buildable)
+    ///Attempts to build `amount` `building` in `tile`.
+    ///Fails if `amount` is too big (see max_buildable)
     //It may be useful to allow tiles to be &HashMap<Position, Tile>.Position
     //This way we could let the function choose the distribution of buildings over
     //the tiles when it doesn't matter
@@ -279,6 +286,14 @@ impl Player {
         }
     }
 
+    /// Fires workers from a building type.
+    ///
+    /// Attempts to fire amount of workers from buildings of type id.
+    ///
+    /// # Errors
+    /// This can fail for two reasons:
+    /// - the player does not own the said building
+    /// - the player tries to fire more workers than hired
     pub fn fire(&mut self, id: BuildingID, amount: u32) -> Result<()> {
         match self.buildings.get_mut(&id) {
             Some(ob) => {
@@ -300,7 +315,98 @@ impl Player {
         }
     }
 
-    //Creates a map witht the lowest factor at which the building can work.
+    fn has_enough_for(&self, resources: &[ResourceEntry]) -> bool {
+        for res_entry in resources {
+            if let Some(res) = self.resources.get(&res_entry.id) {
+                if res.current >= res_entry.amount {
+                    continue;
+                }
+            }
+            return false;
+        }
+        true
+    }
+
+    /// Creating a trade offer to a peer.
+    ///
+    /// Allows player to open a trade with another player.
+    /// The method fails if the player does not have enough resources to garuantee the deal.
+    ///
+    /// # Example
+    ///
+    /// ```
+    ///# use core::resources::ResourceID;
+    ///# use core::trade::{ResourceEntry, Offer};
+    ///# use core::Player;
+    ///# let mut player = Player::new();
+    /// let offer = Offer {offering: vec![ResourceEntry{id:ResourceID(0), amount: 12}], requesting: Vec::new()};
+    /// assert_eq!(true, player.open_trade("Toude".to_string(), offer).is_ok())
+    ///```
+    pub fn open_trade(&mut self, with: Username, offer: Offer) -> Result<()> {
+        if !self.has_enough_for(&offer.offering) {
+            return Err(anyhow!("Not enough resources to comply with the Offer."));
+        }
+        for res_entry in &offer.offering {
+            //we can unwrap because `has` made sure the key exists
+            self.resources.get_mut(&res_entry.id).unwrap().current -= res_entry.amount;
+        }
+        self.trades.outbound.entry(with).or_default().push(offer);
+        Ok(())
+    }
+
+    /// Removes a trade without handling Responses or other logic.
+    ///
+    /// # Errors
+    /// Fails if the offer does not exists in offers.
+    fn remove_offer(
+        with: &Username,
+        offer: &Offer,
+        offers: &mut HashMap<Username, Vec<Offer>>,
+    ) -> Result<()> {
+        if let Some(contracts) = offers.get_mut(with) {
+            for (idx, ongoing_offer) in contracts.iter().enumerate() {
+                if ongoing_offer == offer {
+                    contracts.remove(idx);
+                    return Ok(());
+                }
+            }
+        }
+        Err(anyhow!("No such trades with this player."))
+    }
+
+    /// Cancel an active trade opened by the player.
+    ///
+    /// Let's the player who made the trade cancel their offer.
+    /// This restores the "reserved" resources. Excesses are disposed of.
+    /// This may receive an Exception Response because the host server may have registered
+    /// a refusal of agreement for the said trade.
+    pub fn cancel_trade(&mut self, with: &Username, offer: &Offer) -> Result<()> {
+        //first we make sure the Offer is still valid (ie: exists).
+        Player::remove_offer(with, offer, &mut self.trades.outbound)?;
+        Ok(())
+    }
+
+    /// Accept a received trade offer
+    ///
+    /// Attempts to accept a trade offer made by a foreign party.
+    ///
+    /// # Errors
+    /// This fails if:
+    /// - the trade cancellation was registered before the agreement.
+    /// - the player does not have enough resources to complete fulfill the offer
+    pub fn accept_trade(&mut self, with: &Username, offer: &Offer) -> Result<()> {
+        if self.has_enough_for(&offer.requesting) {
+            Player::remove_offer(with, offer, &mut self.trades.inbound)?;
+            return Ok(());
+        }
+        Err(anyhow!(
+            "Player does not have enough resources to fulfill the offer."
+        ))
+    }
+
+    /// Computes resources generations optimal ratios.
+    ///
+    //Creates a map with the lowest factor at which the building can work.
     //The key is the building and the value its current efficiency.
     //The later is calculated from available resources
     //and takes the production chain into account

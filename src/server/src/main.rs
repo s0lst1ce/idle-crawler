@@ -1,21 +1,19 @@
-use tokio::net::lookup_host;
-use std::thread;
-use anyhow::{Result};
-use serde_json::Value;
+use anyhow::Result;
+use core::response::{Action, Event, Exception, Response};
+use core::{clock, BuildingID, Game, Position, ResourceID};
 use serde_json;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::net::SocketAddr;
+use std::thread;
 use std::{env, io};
 use tokio;
+use tokio::net::lookup_host;
 use tokio::net::UdpSocket;
-use server::{Position, Game, clock, ResourceID, BuildingID};
-use server::response::{Response, Event, Exception, Action};
-
 
 //How should I determine the size of the buffer? By calculating the size of the largest event (Build)
 const BUFFER_SIZE: usize = 1024;
-
 
 pub struct Client {
     //None if the user hasn't been authentificated
@@ -69,12 +67,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let socket = UdpSocket::bind(&addr).await?;
     println!("Listening on: {}", socket.local_addr()?);
-    
+
     //this is a DEV ONLY section that will need re-work
     let mut game = Game::new(0);
-    println!("Resources: {:?}\nBuildings: {:?}", game.get_resources(), game.get_buildings());
+    println!(
+        "Resources: {:?}\nBuildings: {:?}",
+        game.get_resources(),
+        game.get_buildings()
+    );
     let p = game.add_player("Toude".to_string())?;
-    println!("An event in JSON:\n {:?}\n", serde_json::to_string(&Response::Event(Event::Action(Action::Hire{building: BuildingID(0), amount: 3}))));
+    println!(
+        "An event in JSON:\n {:?}\n",
+        serde_json::to_string(&Response::Event(Event::Action(Action::Hire {
+            building: BuildingID(0),
+            amount: 3
+        })))
+    );
     p.deposit(ResourceID(0), 30)?;
     p.hire(BuildingID(0), 2)?;
     p.hire(BuildingID(1), 1)?;
@@ -84,13 +92,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut clock = clock::Clock::new(1);
         println!("Toude {:?}", game.get_players());
         loop {
-            i+=1;
+            i += 1;
             game.update();
             thread::sleep(clock.tick());
             println!("\nIteration {:?}", i);
             println!("Players {:?}", game.get_players());
-    }});
-
+        }
+    });
 
     let server = Server {
         socket,
