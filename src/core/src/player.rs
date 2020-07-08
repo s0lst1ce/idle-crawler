@@ -332,16 +332,16 @@ impl Player {
     /// Allows player to open a trade with another player.
     /// The method fails if the player does not have enough resources to garuantee the deal.
     ///
-    /// # Example
-    ///
-    /// ```
-    ///# use core::resources::ResourceID;
-    ///# use core::trade::{ResourceEntry, Offer};
-    ///# use core::Player;
-    ///# let mut player = Player::new();
-    /// let offer = Offer {offering: vec![ResourceEntry{id:ResourceID(0), amount: 12}], requesting: Vec::new()};
-    /// assert_eq!(true, player.open_trade("Toude".to_string(), offer).is_ok())
-    ///```
+    // # Example
+    //
+    // ```
+    //# use core::resources::ResourceID;
+    //# use core::trade::{ResourceEntry, Offer};
+    //# use core::Player;
+    //# let mut player = Player::new();
+    // let offer = Offer {offering: vec![ResourceEntry{id:ResourceID(0), amount: 12}], requesting: Vec::new()};
+    // assert_eq!(true, player.open_trade("Toude".to_string(), offer).is_ok())
+    //```
     pub fn open_trade(&mut self, with: Username, offer: Offer) -> Result<()> {
         if !self.has_enough_for(&offer.offering) {
             return Err(anyhow!("Not enough resources to comply with the Offer."));
