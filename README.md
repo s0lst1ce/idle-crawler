@@ -14,7 +14,7 @@ An important thing to note is that higher ranked buildings will yield more preci
 
 ## Playing
 
-We will only start building the game for target platforms once it reaches a stable state.
+We will only start building the game for target platforms once it reaches a stable state. By then we will also publish it to https://crates.io/.
 
 ### Getting rust
 
@@ -34,4 +34,10 @@ cargo run --bin client
 
 ## Hosting a game
 
-Upcoming :wink:
+To host a game you need to open the port you will use for idle crawler. This will not be covered here. You can find many good tutorials on how to do it with a simple search.
+
+Hosting a game is easy and done though the `server` crate. For this simply run the following where `port` is the port you've chosen.
+
+```bash
+cargo run --bin server port
+```
