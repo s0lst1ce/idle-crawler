@@ -9,6 +9,9 @@ use std::collections::HashMap;
 
 pub type Username = String;
 
+/// Player stockpiles for a resource
+///
+/// Used to store the current holdings of a player over a specific resource.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stockpile {
     current: u32,
@@ -30,6 +33,13 @@ impl Default for Stockpile {
     }
 }
 
+/// Stats about a building type owned by a player
+///
+/// Holds data for a building type the player has.
+/// That includes the total number of buildings of this type the player owns,
+/// a mapping of where they are located and the workers stats for this building.
+/// Having a single struct per building type instead of one per actual building
+/// makes it simpler to build and demoslih the buildingi as well as managing employees.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OwnedBuilding {
     total: u32,
@@ -53,6 +63,10 @@ impl Default for OwnedBuilding {
     }
 }
 
+/// Player's subjects
+///
+/// Holds data related to the population of a player's empire.
+/// Most useful for dispatching citizens to jobs as well as managing the total population.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Population {
     //here the definition in the repo requires a mapping (ie: HashMap) -> this makes it easier to build upon but less elegant
@@ -485,6 +499,10 @@ impl Player {
     }
 }
 
+/// Player  resource generator
+///
+/// This can be conceived as a cache to speed up calculations.
+/// With it is not necessary to calculate the ratios each tick, speeding up the update.
 #[derive(Debug)]
 pub struct Generator {
     needs_update: bool,
