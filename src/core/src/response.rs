@@ -4,6 +4,8 @@ use crate::resources::ResourceID;
 use crate::tile::{Position, Tile};
 use crate::trade::Offer;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::fmt;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Token(u32);
@@ -34,6 +36,7 @@ pub enum Auth {
     Login(Username, Token),
     Register(Username),
     NewToken(Token),
+    Disconnect,
 }
 
 ///Events affecting the world.
@@ -90,4 +93,17 @@ pub enum Exception {
     InvalidToken,
     Unregistered,
     AlreadyRegistered,
+    NotLoggedIn,
 }
+
+impl fmt::Display for Exception {
+    // add code here
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "This is a game error broadcasted thourgh Response::Expception."
+        )
+    }
+}
+
+impl Error for Exception {}
