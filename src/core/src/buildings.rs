@@ -67,7 +67,7 @@ impl DependencyTree {
 
 /// Abstracts data into rust structs
 ///
-/// This method depends on the data crate. The later provides the game data that
+/// This method depends on the data crate. The latter provides the game data that
 /// determines the options given to the player.
 ///
 /// To keep it easy to maintain and assert interoperability the data is in JSON
