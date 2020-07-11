@@ -7,6 +7,7 @@ pub mod response;
 mod tile;
 pub(crate) mod trade;
 pub use self::buildings::{load_buildings, AllBuildings, Building, BuildingID, DependencyTree};
+use self::clock::Clock;
 pub use self::player::{Generator, Player, Username};
 pub use self::pos::PosGenerator;
 pub use self::resources::{load_resources, AllResources, ResourceID};
@@ -19,6 +20,7 @@ use std::fs::{write, File};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
+use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const BUILDINGS_PATH: &str = "data/buildings.json";
@@ -42,6 +44,18 @@ pub struct Game {
 }
 
 impl Game {
+    pub fn run(&mut self, ups: u8) -> Result<()> {
+        let mut i = 0;
+        let mut clock = Clock::new(ups);
+        loop {
+            i += 1;
+            self.update()?;
+            thread::sleep(clock.tick());
+            println!("\nIteration {:?}", i);
+            println!("Players {:?}", self.get_players());
+        }
+    }
+
     pub fn get_players(&self) -> &HashMap<Username, Player> {
         &self.data.players
     }
