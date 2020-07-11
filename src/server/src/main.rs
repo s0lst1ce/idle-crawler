@@ -1,12 +1,12 @@
+use core::Username;
+use std::thread;
 use anyhow::Result;
 use core::response::{Action, Event, Exception, Response};
-use core::{clock, BuildingID, Game, Position, ResourceID};
+use core::{BuildingID, Game, Position, ResourceID};
 use serde_json;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::net::SocketAddr;
-use std::thread;
 use std::{env, io};
 use tokio;
 use tokio::net::lookup_host;
@@ -17,7 +17,7 @@ const BUFFER_SIZE: usize = 1024;
 
 pub struct Client {
     //None if the user hasn't been authentificated
-    username: Option<String>,
+    username: Option<Username>,
     //the tiles for which information has to be sent
     watching: Vec<Position>,
 }
@@ -87,18 +87,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     p.hire(BuildingID(0), 2)?;
     p.hire(BuildingID(1), 1)?;
     println!("Toude {:?}", p);
-    thread::spawn(move || {
-        let mut i = 0;
-        let mut clock = clock::Clock::new(1);
-        println!("Toude {:?}", game.get_players());
-        loop {
-            i += 1;
-            game.update();
-            thread::sleep(clock.tick());
-            println!("\nIteration {:?}", i);
-            println!("Players {:?}", game.get_players());
-        }
-    });
+    thread::spawn(move || game.run(1));
 
     let server = Server {
         socket,

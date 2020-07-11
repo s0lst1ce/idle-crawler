@@ -9,6 +9,9 @@ use std::collections::HashMap;
 
 pub type Username = String;
 
+/// Player stockpiles for a resource
+///
+/// Used to store the current holdings of a player over a specific resource.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stockpile {
     current: u32,
@@ -30,6 +33,13 @@ impl Default for Stockpile {
     }
 }
 
+/// Stats about a building type owned by a player
+///
+/// Holds data for a building type the player has.
+/// That includes the total number of buildings of this type the player owns,
+/// a mapping of where they are located and the workers stats for this building.
+/// Having a single struct per building type instead of one per actual building
+/// makes it simpler to build and demoslih the buildingi as well as managing employees.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OwnedBuilding {
     total: u32,
@@ -53,6 +63,10 @@ impl Default for OwnedBuilding {
     }
 }
 
+/// Player's subjects
+///
+/// Holds data related to the population of a player's empire.
+/// Most useful for dispatching citizens to jobs as well as managing the total population.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Population {
     //here the definition in the repo requires a mapping (ie: HashMap) -> this makes it easier to build upon but less elegant
@@ -129,13 +143,7 @@ impl Player {
     }
 
     //Returns the maximum amount of buildings of the type `id` the player can currrently build.
-    pub fn max_buildable(
-        &self,
-        tiles: Vec<&Tile>,
-        id: BuildingID,
-        building: &Building,
-        amount: u32,
-    ) -> u32 {
+    pub fn max_buildable(&self, tiles: Vec<&Tile>, id: BuildingID, building: &Building) -> u32 {
         let mut max = u32::MAX;
 
         //if the building uses natural resources there must enough free slots
@@ -143,13 +151,17 @@ impl Player {
         if building.extractor {
             max = 0;
             for tile in tiles {
-                if let Some(res_type) = tile.resources.slots.get(&id) {
-                    max += res_type.total - res_type.used
+                if let Some(patch) = tile.resources.slots.get(&id) {
+                    max += patch.total - patch.used
                 }
             }
         }
         for (resource, qt) in building.construction_cost.iter() {
-            max = max.min(self.resources.get(resource).unwrap().current / (qt * amount));
+            if let Some(res) = self.resources.get(resource) {
+                max = max.min(res.current / qt);
+            } else {
+                return 0;
+            }
         }
         max
     }
@@ -166,12 +178,12 @@ impl Player {
         building: &Building,
         amount: u32,
     ) -> Result<()> {
-        if amount > self.max_buildable(vec![tiles.1], id, building, amount) {
+        if amount > self.max_buildable(vec![tiles.1], id, building) {
             return Err(anyhow!(format!(
                 "Can't build {:?} buildings of type ID{:?}, maximum is {:?}",
                 amount,
                 id,
-                self.max_buildable(vec![tiles.1], id, building, amount)
+                self.max_buildable(vec![tiles.1], id, building)
             )));
         }
         self.gen.needs_update = true;
@@ -332,16 +344,18 @@ impl Player {
     /// Allows player to open a trade with another player.
     /// The method fails if the player does not have enough resources to garuantee the deal.
     ///
-    /// # Example
-    ///
-    /// ```
-    ///# use core::resources::ResourceID;
-    ///# use core::trade::{ResourceEntry, Offer};
-    ///# use core::Player;
-    ///# let mut player = Player::new();
-    /// let offer = Offer {offering: vec![ResourceEntry{id:ResourceID(0), amount: 12}], requesting: Vec::new()};
-    /// assert_eq!(true, player.open_trade("Toude".to_string(), offer).is_ok())
-    ///```
+    // # Example
+    //
+    // ```
+    //# use core::resources::ResourceID;
+    //# use core::trade::{ResourceEntry, Offer};
+    //# use core::Player;
+    //# use core::buildings::load_buildings;
+    //# let (all_buildings, _) = load_buildings();
+    //# let mut player = Player::new(all_buildings);
+    // let offer = Offer {offering: vec![ResourceEntry{id:ResourceID(0), amount: 12}], requesting: Vec::new()};
+    // assert_eq!(true, player.open_trade("Toude".to_string(), offer).is_ok())
+    //```
     pub fn open_trade(&mut self, with: Username, offer: Offer) -> Result<()> {
         if !self.has_enough_for(&offer.offering) {
             return Err(anyhow!("Not enough resources to comply with the Offer."));
@@ -485,6 +499,10 @@ impl Player {
     }
 }
 
+/// Player  resource generator
+///
+/// This can be conceived as a cache to speed up calculations.
+/// With it is not necessary to calculate the ratios each tick, speeding up the update.
 #[derive(Debug)]
 pub struct Generator {
     needs_update: bool,
