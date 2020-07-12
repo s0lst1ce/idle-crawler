@@ -4,11 +4,23 @@ use crate::resources::ResourceID;
 use crate::tile::{Position, Tile};
 use crate::trade::Offer;
 use serde::{Deserialize, Serialize};
+use std::cmp::PartialEq;
 use std::error::Error;
 use std::fmt;
 
-#[derive(Debug, Deserialize, Serialize)]
+/// A token used as a pass for a user
+///
+/// BEWARE! This is currently just a random u32 that offers
+/// no crypto guarantees!
+#[derive(Debug, Deserialize, Serialize, Copy, Clone, PartialEq)]
 pub struct Token(u32);
+
+impl Token {
+    pub fn new() -> Token {
+        //a very secure & unique token
+        Token(3421545)
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Response {
@@ -93,7 +105,7 @@ pub enum Exception {
     InvalidToken,
     Unregistered,
     AlreadyRegistered,
-    NotLoggedIn,
+    LoggedOut,
 }
 
 impl fmt::Display for Exception {
