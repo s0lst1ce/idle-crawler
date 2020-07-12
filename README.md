@@ -1,7 +1,6 @@
 # Idle Crawler
 
-![Tests status](https://api.travis-ci.com/s0lst1ce/idle-crawler.svg?token=zSiHNMEiVbeuTV5tCj6L&branch=master&status=started)
-
+![Tests status](https://api.travis-ci.com/s0lst1ce/idle-crawler.svg?token=zSiHNMEiVbeuTV5tCj6L&branch=master&status=started) <a href="https://discord.gg/mpGM5cg"><img src="https://discord.com/api/guilds/564213369834307600/embed.png" alt="discord"></a>
 
 
 Idle crawler came from my (s0lst1ce) desire to create a small terminal-based game in rust. The idea was to hone my rust skills. Eager to share this experience AQUINOS joined some time later.
