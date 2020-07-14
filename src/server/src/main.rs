@@ -1,5 +1,5 @@
 use anyhow::Result;
-use core::response::{Action, Auth, Event, Exception, Response, Token};
+use core::response::{Action, Auth, Event, Exception, Response, Token, World};
 use core::Username;
 use core::{BuildingID, Game, Position, ResourceID};
 use serde_json;
@@ -7,6 +7,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::net::SocketAddr;
 use std::path::Path;
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::{env, io};
 use tokio;
@@ -20,6 +22,7 @@ const USERS_PATH: &str = "accounts.json";
 type Accounts = HashMap<Username, Token>;
 
 struct Server {
+    game: (Sender<Response>, Receiver<Exception>),
     accounts: Accounts,
     socket: UdpSocket,
     //None means not authentificated
@@ -41,37 +44,25 @@ impl Server {
     async fn update_once(&mut self) -> Result<(), io::Error> {
         let (addr, response) = self.poll().await?;
         match response {
+            Response::Auth(auth) => match auth {
+                Auth::Disconnect => if self.clients.remove(&addr).is_none() {
+                        self.socket
+                            .send_to(
+                                serde_json::to_string(&Exception::LoggedOut)
+                                    .unwrap()
+                                    .as_bytes(),
+                                addr,
+                            )
+                            .await?;} else {
+                                self.dispatch(&Response::Exception(Exception::LoggedOut), addr).await?;
+                            }
+                Auth::Login(username, token) => self.login(addr, username, &token).await?,
+                Auth::Register(username) => self.register(addr, username).await?,
+                Auth::NewToken(_) => panic!("The server should never receive NewToken! It is supposed to send it when registration succeeds."),
+            }
             Response::Event(event) => {
                 //we check for auth first because all other events require a logged user
-                if let Event::Auth(auth) = event {
-                    match auth {
-                        Auth::Disconnect => if self.clients.remove(&addr).is_none() {
-                                self.socket
-                                    .send_to(
-                                        serde_json::to_string(&Exception::LoggedOut)
-                                            .unwrap()
-                                            .as_bytes(),
-                                        addr,
-                                    )
-                                    .await?;} else {
-                                        self.dispatch(&Response::Exception(Exception::LoggedOut), addr);
-                                    }
-                        Auth::Login(username, token) => self.login(addr, username, &token).await?,
-                        Auth::Register(username) => self.register(addr, username).await?,
-                        Auth::NewToken(_) => panic!("The server should never receive NewToken! It is supposed to send it when registration succeeds."),
-                    }
-                } else {
-                    if self.clients.entry(addr).or_default().is_some() {
-                        match event {
-                            Event::Action(action) => unimplemented!(),
-                            Event::World(world) => unimplemented!(),
-                            Event::Trade { from, to, offer } => unimplemented!(),
-                            Event::Auth(_) => panic!("Event::Auth shouldn't be matched now!"),
-                        }
-                    } else {
-                        self.dispatch(&Response::Exception(Exception::LoggedOut), addr).await?;
-                    }
-                }
+                unimplemented!()
             }
             Response::Exception(exception) => (),
         }
@@ -84,17 +75,28 @@ impl Server {
         }
     }
 
+    async fn send_to_game(
+        &mut self,
+        response: Response,
+        username: Username,
+    ) -> Result<(), io::Error> {
+        unimplemented!()
+    }
+
     async fn dispatch(&mut self, response: &Response, addr: SocketAddr) -> Result<(), io::Error> {
-        self.socket.send_to(serde_json::to_string(response).unwrap().as_bytes(), addr).await?;
+        self.socket
+            .send_to(serde_json::to_string(response).unwrap().as_bytes(), addr)
+            .await?;
         Ok(())
     }
 
     async fn register(&mut self, addr: SocketAddr, username: Username) -> Result<(), io::Error> {
         if self.accounts.contains_key(&username) {
-            self.dispatch(&Response::Exception(Exception::AlreadyRegistered), addr);
+            self.dispatch(&Response::Exception(Exception::AlreadyRegistered), addr).await?;
         }
         let token = Token::new();
-        self.dispatch(&Response::Event(Event::Auth(Auth::NewToken(token))), addr).await?;
+        self.dispatch(&Response::Auth(Auth::NewToken(token)), addr)
+            .await?;
         Ok(())
     }
 
@@ -109,10 +111,14 @@ impl Server {
                 if r_token == token {
                     *self.clients.get_mut(&addr).unwrap() = Some(username)
                 } else {
-                    self.dispatch(&Response::Exception(Exception::InvalidToken), addr).await?;
+                    self.dispatch(&Response::Exception(Exception::InvalidToken), addr)
+                        .await?;
                 }
             }
-            None => self.dispatch(&Response::Exception(Exception::Unregistered), addr).await?,
+            None => {
+                self.dispatch(&Response::Exception(Exception::Unregistered), addr)
+                    .await?
+            }
         }
         Ok(())
     }
@@ -134,19 +140,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|| "127.0.0.1:6142".to_string());
 
     let socket = UdpSocket::bind(&addr).await?;
-    println!("Listening on: {}", socket.local_addr()?);
+
+    let (tx1, rx1) = channel();
+    let (tx2, rx2) = channel();
+    let server = Server {
+        game: (tx1, rx2),
+        accounts: load_accounts(USERS_PATH),
+        socket,
+        clients: HashMap::new(),
+        buf: vec![0; BUFFER_SIZE],
+    };
+    println!("Listening on: {}", server.socket.local_addr()?);
 
     //this is a DEV ONLY section that will need re-work
-    let mut game = Game::new(0);
+    let mut game = Game::new(0, (tx2, rx1));
     println!(
         "Resources: {:?}\nBuildings: {:?}",
         game.get_resources(),
         game.get_buildings()
     );
-    let p = game.add_player("Toude".to_string())?;
+    let p = game.add_player(String::from("Toude"))?;
     println!(
         "An event in JSON:\n {:?}\n",
-        serde_json::to_string(&Response::Event(Event::Action(Action::Hire {
+        serde_json::to_string(&Response::Event(Event::Player(Action::Hire {
             building: BuildingID(0),
             amount: 3
         })))
@@ -156,16 +172,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     p.hire(BuildingID(1), 1)?;
     println!("Toude {:?}", p);
     thread::spawn(move || game.run(1));
-
-    let server = Server {
-        accounts: load_accounts(USERS_PATH),
-        socket,
-        clients: HashMap::new(),
-        buf: vec![0; BUFFER_SIZE],
-    };
+    server.run().await?;
 
     //running server
-    server.run().await?;
 
     Ok(())
 }

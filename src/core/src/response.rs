@@ -26,20 +26,14 @@ impl Token {
 pub enum Response {
     Event(Event),
     Exception(Exception),
+    Auth(Auth),
 }
 
 ///Player-generated requests.
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Event {
-    Action(Action),
+    Player(Action),
     World(World),
-    //currently only supports simple trades
-    Trade {
-        from: Username,
-        to: Username,
-        offer: Offer,
-    },
-    Auth(Auth),
 }
 
 ///Events linked to authentification
@@ -86,6 +80,12 @@ pub enum Action {
     Deposit { resource: ResourceID, amount: u32 },
     ///Remove resources from the player. Refer to `Player::withdraw`
     Withdraw { resource: ResourceID, amount: u32 },
+    //currently only supports simple trades
+    Trade {
+        from: Username,
+        to: Username,
+        offer: Offer,
+    },
 }
 
 ///Errors resulting from Events.
@@ -113,7 +113,7 @@ impl fmt::Display for Exception {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "This is a game error broadcasted thourgh Response::Expception."
+            "This is a game error broadcasted though Response::Expception."
         )
     }
 }
