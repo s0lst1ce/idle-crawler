@@ -22,7 +22,7 @@ const USERS_PATH: &str = "accounts.json";
 type Accounts = HashMap<Username, Token>;
 
 struct Server {
-    game: (Sender<Response>, Receiver<Exception>),
+    game: (Sender<(Username, Event)>, Receiver<Exception>),
     accounts: Accounts,
     socket: UdpSocket,
     //None means not authentificated
@@ -62,7 +62,12 @@ impl Server {
             }
             Response::Event(event) => {
                 //we check for auth first because all other events require a logged user
-                unimplemented!()
+                if self.clients.contains_key(&addr){
+                    match self.clients.get(&addr).unwrap().clone() {
+                        Some(username) => self.send_to_game(event, username).await?,
+                        None => self.dispatch(&Response::Exception(Exception::Unregistered), addr).await?
+                    }
+                }
             }
             Response::Exception(exception) => (),
         }
@@ -77,10 +82,13 @@ impl Server {
 
     async fn send_to_game(
         &mut self,
-        response: Response,
+        event: Event,
         username: Username,
     ) -> Result<(), io::Error> {
-        unimplemented!()
+        if let Err(_) = self.game.0.send((username, event)) {
+            panic!("Something broke the channel between the game and main threads!");
+        }
+        Ok(())
     }
 
     async fn dispatch(&mut self, response: &Response, addr: SocketAddr) -> Result<(), io::Error> {

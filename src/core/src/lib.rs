@@ -41,7 +41,7 @@ pub struct Game {
     buildings: AllBuildings,
     resources: AllResources,
     dep_tree: DependencyTree,
-    master: (Sender<Exception>, Receiver<Response>),
+    master: (Sender<Exception>, Receiver<(Username, Event)>),
 }
 
 impl Game {
@@ -88,7 +88,7 @@ impl Game {
     pub fn load(
         &self,
         path: PathBuf,
-        master: (Sender<Exception>, Receiver<Response>),
+        master: (Sender<Exception>, Receiver<(Username, Event)>),
     ) -> Result<Game, io::Error> {
         let mut file = String::new();
         File::open(path)?.read_to_string(&mut file)?;
@@ -103,7 +103,7 @@ impl Game {
         })
     }
 
-    pub fn new(nbr: u32, master: (Sender<Exception>, Receiver<Response>)) -> Game {
+    pub fn new(nbr: u32, master: (Sender<Exception>, Receiver<(Username, Event)>)) -> Game {
         let mut world = HashMap::new();
         let mut pos_gen = PosGenerator::new(0);
         for _ in 0..nbr {
