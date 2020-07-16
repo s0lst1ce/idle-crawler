@@ -20,7 +20,7 @@ use std::fs::{write, File};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -41,15 +41,26 @@ pub struct Game {
     buildings: AllBuildings,
     resources: AllResources,
     dep_tree: DependencyTree,
-    master: (Sender<Exception>, Receiver<(Username, Event)>),
 }
 
 impl Game {
-    pub fn run(&mut self, ups: u8) -> Result<()> {
+    pub fn run(
+        &mut self,
+        ups: u8,
+        sender: Sender<(Username, Exception)>,
+        receiver: Receiver<(Username, Event)>,
+    ) -> Result<()> {
         let mut i = 0;
         let mut clock = Clock::new(ups);
         loop {
             i += 1;
+            //processing events received from the master thread
+            for event in receiver.try_iter() {
+                match self.process(&event.0, event.1) {
+                    Ok(_) => (),
+                    Err(exception) => sender.send((event.0, exception))?,
+                }
+            }
             self.update()?;
             thread::sleep(clock.tick());
             println!("\nIteration {:?}", i);
@@ -85,11 +96,7 @@ impl Game {
         Ok(())
     }
 
-    pub fn load(
-        &self,
-        path: PathBuf,
-        master: (Sender<Exception>, Receiver<(Username, Event)>),
-    ) -> Result<Game, io::Error> {
+    pub fn load(&self, path: PathBuf) -> Result<Game, io::Error> {
         let mut file = String::new();
         File::open(path)?.read_to_string(&mut file)?;
         let data: GameData = serde_json::from_str(&file)?;
@@ -99,11 +106,10 @@ impl Game {
             buildings: buildings,
             dep_tree: tree,
             resources: load_resources(RESOURCES_PATH),
-            master: master,
         })
     }
 
-    pub fn new(nbr: u32, master: (Sender<Exception>, Receiver<(Username, Event)>)) -> Game {
+    pub fn new(nbr: u32) -> Game {
         let mut world = HashMap::new();
         let mut pos_gen = PosGenerator::new(0);
         for _ in 0..nbr {
@@ -119,7 +125,6 @@ impl Game {
             buildings: buildings,
             dep_tree: tree,
             resources: load_resources(RESOURCES_PATH),
-            master: master,
         }
     }
 

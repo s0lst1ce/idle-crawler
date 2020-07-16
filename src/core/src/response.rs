@@ -24,9 +24,9 @@ impl Token {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Response {
+    Auth(Auth),
     Event(Event),
     Exception(Exception),
-    Auth(Auth),
 }
 
 ///Player-generated requests.

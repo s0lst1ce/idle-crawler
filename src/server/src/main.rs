@@ -1,18 +1,17 @@
 use anyhow::Result;
-use core::response::{Action, Auth, Event, Exception, Response, Token, World};
+use core::response::{Action, Auth, Event, Exception, Response, Token};
 use core::Username;
-use core::{BuildingID, Game, Position, ResourceID};
+use core::{BuildingID, Game, ResourceID};
 use serde_json;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs::write;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, Mutex};
 use std::thread;
 use std::{env, io};
 use tokio;
-use tokio::net::lookup_host;
 use tokio::net::UdpSocket;
 
 //How should I determine the size of the buffer? By calculating the size of the largest event (Build)
@@ -22,7 +21,7 @@ const USERS_PATH: &str = "accounts.json";
 type Accounts = HashMap<Username, Token>;
 
 struct Server {
-    game: (Sender<(Username, Event)>, Receiver<Exception>),
+    game: (Sender<(Username, Event)>, Receiver<(Username, Exception)>),
     accounts: Accounts,
     socket: UdpSocket,
     //None means not authentificated
@@ -64,12 +63,29 @@ impl Server {
                 //we check for auth first because all other events require a logged user
                 if self.clients.contains_key(&addr){
                     match self.clients.get(&addr).unwrap().clone() {
-                        Some(username) => self.send_to_game(event, username).await?,
-                        None => self.dispatch(&Response::Exception(Exception::Unregistered), addr).await?
+                        Some(username) => self.send_to_game(username, event).await?,
+                        None => self.dispatch(&Response::Exception(Exception::LoggedOut), addr).await?
                     }
                 }
             }
-            Response::Exception(exception) => (),
+            Response::Exception(_) => (),
+        }
+        //we should only have at most one exception waiting here.
+        if let Ok(exception) = self.game.1.try_recv() {
+            let crt_addr = *self
+                .clients
+                .iter()
+                .find(|user| {
+                    if let Some(username) = user.1 {
+                        *username == exception.0
+                    } else {
+                        false
+                    }
+                })
+                .unwrap()
+                .0;
+            self.dispatch(&Response::Exception(exception.1), crt_addr)
+                .await?;
         }
         Ok(())
     }
@@ -80,11 +96,7 @@ impl Server {
         }
     }
 
-    async fn send_to_game(
-        &mut self,
-        event: Event,
-        username: Username,
-    ) -> Result<(), io::Error> {
+    async fn send_to_game(&mut self, username: Username, event: Event) -> Result<(), io::Error> {
         if let Err(_) = self.game.0.send((username, event)) {
             panic!("Something broke the channel between the game and main threads!");
         }
@@ -95,12 +107,15 @@ impl Server {
         self.socket
             .send_to(serde_json::to_string(response).unwrap().as_bytes(), addr)
             .await?;
+        //this is for dev only!
+        save_accounts(USERS_PATH, &self.accounts).await;
         Ok(())
     }
 
     async fn register(&mut self, addr: SocketAddr, username: Username) -> Result<(), io::Error> {
         if self.accounts.contains_key(&username) {
-            self.dispatch(&Response::Exception(Exception::AlreadyRegistered), addr).await?;
+            self.dispatch(&Response::Exception(Exception::AlreadyRegistered), addr)
+                .await?;
         }
         let token = Token::new();
         self.dispatch(&Response::Auth(Auth::NewToken(token)), addr)
@@ -132,20 +147,18 @@ impl Server {
     }
 }
 
-fn load_accounts<A: AsRef<Path>>(path: A) -> Accounts {
+async fn load_accounts<A: AsRef<Path>>(path: A) -> Accounts {
     let file = std::fs::read(path).expect("coudln't read accounts file");
     serde_json::from_slice(&file).expect("couldn't serialize accounts JSON")
 }
 
-fn save_acounts<A: AsRef<Path>>(path: A, accounts: Accounts) -> Result<()> {
-    unimplemented!()
+async fn save_accounts<A: AsRef<Path>>(path: A, accounts: &Accounts) -> Result<()> {
+    Ok(write(path, serde_json::to_string(accounts)?)?)
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let addr = env::args()
-        .nth(1)
-        .unwrap_or_else(|| "127.0.0.1:6142".to_string());
+    let addr = "127.0.0.1:".to_owned() + &env::args().nth(1).unwrap_or_else(|| "6142".to_string());
 
     let socket = UdpSocket::bind(&addr).await?;
 
@@ -153,7 +166,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let (tx2, rx2) = channel();
     let server = Server {
         game: (tx1, rx2),
-        accounts: load_accounts(USERS_PATH),
+        accounts: load_accounts(USERS_PATH).await,
         socket,
         clients: HashMap::new(),
         buf: vec![0; BUFFER_SIZE],
@@ -161,7 +174,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Listening on: {}", server.socket.local_addr()?);
 
     //this is a DEV ONLY section that will need re-work
-    let mut game = Game::new(0, (tx2, rx1));
+    let mut game = Game::new(0);
     println!(
         "Resources: {:?}\nBuildings: {:?}",
         game.get_resources(),
@@ -179,7 +192,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     p.hire(BuildingID(0), 2)?;
     p.hire(BuildingID(1), 1)?;
     println!("Toude {:?}", p);
-    thread::spawn(move || game.run(1));
+    thread::spawn(move || game.run(1, tx2, rx1));
     server.run().await?;
 
     //running server
