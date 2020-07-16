@@ -39,9 +39,13 @@ pub enum Event {
 ///Events linked to authentification
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Auth {
+    ///authentificating as an already registered user
     Login(Username, Token),
+    ///requesting the registering of a new player & user
     Register(Username),
+    ///if `Register` succeeds this `Response` is sent with the new `Token` to be used to log in.
     NewToken(Token),
+    ///Gracefully shuting down the connection
     Disconnect,
 }
 
