@@ -13,6 +13,17 @@ jobs:
   fast_finish: true
 cache: cargo
 
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - cmake
+      - gcc
+      - binutils-dev
+      - libiberty-dev
+
 # Upload code coverage
 after_success: |
   wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
