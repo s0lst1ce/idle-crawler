@@ -27,6 +27,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const BUILDINGS_PATH: &str = "data/buildings.json";
 const RESOURCES_PATH: &str = "data/resources.json";
 
+/// Data to be saved and represeting the current game
+///
+/// This struct's fields were initially part of Game.
+/// It was however later decided to put them in a distinct struct to make it clearer.
+/// All data that needs to be saved for the "save" to be consistent over restarts is comprised
+/// in this struct.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GameData {
     //we need to make sure they stay ordered to enable correct behavior of PosGenerator
