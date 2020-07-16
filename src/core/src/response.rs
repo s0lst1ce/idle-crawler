@@ -102,9 +102,13 @@ pub enum Exception {
     TileNotOwned(Position),
 
     //auth errors
+    ///The token used for logging in doesn't match used for registration of this user.
     InvalidToken,
+    ///This username is not registered by the server
     Unregistered,
+    ///Registration failure due to already registered username
     AlreadyRegistered,
+    ///Generated when a client attempts to send a Response::Event without being logged in.
     LoggedOut,
 }
 
