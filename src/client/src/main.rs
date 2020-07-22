@@ -1,7 +1,6 @@
 use core::Game;
 
 fn main() {
-
     let mut game = Game::new(0);
     let username = "Player1";
     match game.add_player(String::from(username)) {

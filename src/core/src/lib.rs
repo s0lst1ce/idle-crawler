@@ -11,7 +11,7 @@ use self::clock::Clock;
 pub use self::player::{Generator, Player, Username};
 pub use self::pos::PosGenerator;
 pub use self::resources::{load_resources, AllResources, ResourceID};
-pub use self::response::{Action, Exception, Response};
+pub use self::response::{Action, Event, Exception, Response, World};
 pub use self::tile::{Position, Tile};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
@@ -20,35 +20,53 @@ use std::fs::{write, File};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const BUILDINGS_PATH: &str = "data/buildings.json";
 const RESOURCES_PATH: &str = "data/resources.json";
 
+/// Data to be saved and represeting the current game
+///
+/// This struct's fields were initially part of Game.
+/// It was however later decided to put them in a distinct struct to make it clearer.
+/// All data that needs to be saved for the "save" to be consistent over restarts is comprised
+/// in this struct.
 #[derive(Debug, Serialize, Deserialize)]
-struct GameData {
+pub struct GameData {
     //we need to make sure they stay ordered to enable correct behavior of PosGenerator
-    world: HashMap<Position, Tile>,
-    players: HashMap<Username, Player>,
+    pub world: HashMap<Position, Tile>,
+    pub players: HashMap<Username, Player>,
     pos_gen: PosGenerator,
 }
 
 #[derive(Debug)]
 pub struct Game {
-    data: GameData,
+    pub data: GameData,
     buildings: AllBuildings,
     resources: AllResources,
     dep_tree: DependencyTree,
-    //username, Generator
 }
 
 impl Game {
-    pub fn run(&mut self, ups: u8) -> Result<()> {
+    pub fn run(
+        &mut self,
+        ups: u8,
+        sender: Sender<(Username, Exception)>,
+        receiver: Receiver<(Username, Event)>,
+    ) -> Result<()> {
         let mut i = 0;
         let mut clock = Clock::new(ups);
         loop {
             i += 1;
+            //processing events received from the master thread
+            for event in receiver.try_iter() {
+                match self.process(&event.0, event.1) {
+                    Ok(_) => (),
+                    Err(exception) => sender.send((event.0, exception))?,
+                }
+            }
             self.update()?;
             thread::sleep(clock.tick());
             println!("\nIteration {:?}", i);
@@ -144,75 +162,103 @@ impl Game {
         }
     }
 
+    /// Gets a tile for any position
+    ///
+    /// Either returns a reference to an existing tile or makes a new one.
+    pub fn get_tile(&mut self, pos: Position) -> Tile {
+        todo!()
+    }
+
     ///Processes player action events.
     //This method expects that the username exists. Panics otherwise.
     //The username should be provided by the binary (not the lib) and determined by the socket address.
-    pub fn process(&mut self, username: &Username, event: Action) -> Option<Exception> {
-        let player = self.data.players.get_mut(username).unwrap();
+    pub fn process(
+        &mut self,
+        username: &Username,
+        event: Event,
+    ) -> Result<Option<Event>, Exception> {
+        let player = match self.data.players.get_mut(username) {
+            Some(player) => player,
+            None => return Err(Exception::Unregistered),
+        };
+        //I need to make sure the player exists. Here or elsewhere?
         match event {
-            Action::Build {
-                pos,
-                building,
-                amount,
-            } => {
-                if let Err(_) = player.build(
-                    (&pos, self.data.world.get_mut(&pos).unwrap()),
+            Event::Player(action) => match action {
+                Action::Build {
+                    pos,
                     building,
-                    self.buildings.get(&building).unwrap(),
                     amount,
-                ) {
-                    //WARN:: this is a placeholder, the actual exception may be different but there's currently no way of determinning it.
-                    return Some(Exception::PlaceHolder);
-                } else {
-                    None
+                } => {
+                    if let Err(_) = player.build(
+                        (&pos, self.data.world.get_mut(&pos).unwrap()),
+                        building,
+                        self.buildings.get(&building).unwrap(),
+                        amount,
+                    ) {
+                        //WARN:: this is a placeholder, the actual exception may be different but there's currently no way of determinning it.
+                        return Err(Exception::PlaceHolder);
+                    } else {
+                        Ok(None)
+                    }
                 }
-            }
 
-            Action::Demolish {
-                pos,
-                building,
-                amount,
-            } => {
-                if let Err(_) = player.demolish(
-                    (&pos, self.data.world.get_mut(&pos).unwrap()),
+                Action::Demolish {
+                    pos,
                     building,
-                    self.buildings.get(&building).unwrap(),
                     amount,
-                ) {
-                    //WARN:: this is a placeholder, the actual exception may be different but there's currently no way of determinning it.
-                    return Some(Exception::PlaceHolder);
-                } else {
-                    None
+                } => {
+                    if let Err(_) = player.demolish(
+                        (&pos, self.data.world.get_mut(&pos).unwrap()),
+                        building,
+                        self.buildings.get(&building).unwrap(),
+                        amount,
+                    ) {
+                        //WARN:: this is a placeholder, the actual exception may be different but there's currently no way of determinning it.
+                        return Err(Exception::PlaceHolder);
+                    } else {
+                        Ok(None)
+                    }
                 }
-            }
-            Action::Hire { building, amount } => {
-                if let Err(_) = player.hire(building, amount) {
-                    return Some(Exception::PlaceHolder);
-                } else {
-                    None
+                Action::Hire { building, amount } => {
+                    if let Err(_) = player.hire(building, amount) {
+                        return Err(Exception::PlaceHolder);
+                    } else {
+                        Ok(None)
+                    }
                 }
-            }
-            Action::Fire { building, amount } => {
-                if let Err(_) = player.fire(building, amount) {
-                    return Some(Exception::PlaceHolder);
-                } else {
-                    None
+                Action::Fire { building, amount } => {
+                    if let Err(_) = player.fire(building, amount) {
+                        return Err(Exception::PlaceHolder);
+                    } else {
+                        Ok(None)
+                    }
                 }
-            }
-            Action::Deposit { resource, amount } => {
-                if let Err(_) = player.deposit(resource, amount) {
-                    Some(Exception::PlaceHolder)
-                } else {
-                    None
+                Action::Deposit { resource, amount } => {
+                    if let Err(_) = player.deposit(resource, amount) {
+                        Err(Exception::PlaceHolder)
+                    } else {
+                        Ok(None)
+                    }
                 }
-            }
-            Action::Withdraw { resource, amount } => {
-                if let Err(_) = player.withdraw(resource, amount) {
-                    return Some(Exception::PlaceHolder);
-                } else {
-                    None
+                Action::Withdraw { resource, amount } => {
+                    if let Err(_) = player.withdraw(resource, amount) {
+                        return Err(Exception::PlaceHolder);
+                    } else {
+                        Ok(None)
+                    }
                 }
-            }
+                Action::Trade { from, to, offer } => unimplemented!(),
+            },
+            Event::World(world) => match world {
+                World::GetTile(pos) => {
+                    if player.lands.contains(&pos) {
+                        return Ok(Some(Event::World(World::Tile(self.get_tile(pos)))));
+                    } else {
+                        return Err(Exception::PlaceHolder);
+                    }
+                }
+                World::Tile(tile) => todo!(), //we don't have the position anymore, what do to :thinking:
+            },
         }
     }
 }
