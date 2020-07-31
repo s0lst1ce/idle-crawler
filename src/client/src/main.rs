@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #[allow(unused_imports)]
 mod ui;
 use core::{AllBuildings, Game, Player};
@@ -20,17 +19,6 @@ use tui::{
 // - event processing (aka: event loop)
 // - game update
 // - gui update
-=======
-use core::Game;
-
-fn main() {
-    let mut game = Game::new(0);
-    let username = "Player1";
-    match game.add_player(String::from(username)) {
-        Ok(_) => println!("Player {} added successfully", username),
-        Err(_) => eprint!("Couldn't add player {}", username)
-    };
->>>>>>> 1ab5deb4e12e54417d9a049ac9941b602fc31b78
 
 fn main() -> Result<(), io::Error> {
     //GUI setup
