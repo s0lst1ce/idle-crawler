@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 core = {path = "../core"}
+crossterm = "0.17"
+tui = { version = "0.10", default-features = false, features = ['crossterm'] }
