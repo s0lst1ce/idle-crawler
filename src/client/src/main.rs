@@ -1,8 +1,9 @@
 #[allow(unused_imports)]
 mod ui;
 use core::{AllBuildings, Game, Player};
-use crossterm::event::{self, Event as TEvent, KeyCode};
+use crossterm::event::{self, Event as CEvent, KeyCode, KeyEvent};
 use std::{
+    error::Error,
     io,
     sync::mpsc,
     thread,
@@ -14,6 +15,7 @@ use tui::{
     widgets::{Block, Borders, Clear},
     Terminal,
 };
+use ui::Message;
 
 //the idea is to split the update logic in three parts:
 // - event processing (aka: event loop)
@@ -31,14 +33,18 @@ fn main() -> Result<(), io::Error> {
 
     //tick rate used for event lookup, not for the game
     let tick_rate = Duration::from_millis(200);
-    thread::spawn({
+    thread::spawn(move || {
         let mut last_tick = Instant::now();
-        move || loop {
+        loop {
             if event::poll(tick_rate - last_tick.elapsed()).unwrap() {
                 //currently only handling key events
-                if let TEvent::Key(key) = event::read().unwrap() {
-                    tx.send(key);
+                if let CEvent::Key(key_event) = event::read().unwrap() {
+                    tx.send(Message::Input(key_event.code));
                 }
+            }
+            if last_tick.elapsed() >= tick_rate {
+                tx.send(Message::NextIteration);
+                last_tick = Instant::now();
             }
         }
     });
@@ -62,6 +68,20 @@ fn main() -> Result<(), io::Error> {
             f.render_widget(block, chunks[0]);
             ui::draw_main_menu(f, chunks[1]);
         })?;
+
+        if let Ok(_e) = rx.recv() {
+            println!("Dealing");
+            match rx.recv().unwrap() {
+                //we need to free resources to update the screen
+                Message::NextIteration => (),
+                Message::Input(key) => match key {
+                    Up => println!("HEy!"),
+                    Down => todo!(),
+                    _ => println!("Nope"),
+                },
+                _ => unreachable!(),
+            }
+        }
     }
     Ok(())
 }

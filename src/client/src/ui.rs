@@ -1,3 +1,4 @@
+use crossterm::event::KeyCode;
 use tui::{
     backend::Backend,
     layout::Rect,
@@ -10,7 +11,7 @@ use tui::{
 pub fn draw_main_menu<B: Backend>(f: &mut Frame<B>, area: Rect) {
     let mut menu = Menu::new(vec![
         (Choice::new("load", Message::PlaceHolder), None),
-        (Choice::new("new", Message::PlaceHolder), None),
+        (Choice::new("lew", Message::PlaceHolder), None),
         (Choice::new("join", Message::PlaceHolder), None),
         (Choice::new("host", Message::PlaceHolder), None),
         (Choice::new("quit", Message::PlaceHolder), None),
@@ -19,8 +20,10 @@ pub fn draw_main_menu<B: Backend>(f: &mut Frame<B>, area: Rect) {
 }
 
 #[derive(Debug)]
-enum Message {
+pub enum Message {
     PlaceHolder,
+    Input(KeyCode),
+    NextIteration,
 }
 
 #[derive(Debug)]
@@ -57,7 +60,6 @@ struct Menu<'a> {
 }
 
 impl Menu<'_> {
-    //honestly not sure about 'static I think it lives during the whole program.
     fn new(items: Vec<(Choice, Option<char>)>) -> Menu<'static> {
         let (buttons, shortcuts) = Menu::extrapolate_shorts(items);
         let list = Menu::new_list(&buttons);
