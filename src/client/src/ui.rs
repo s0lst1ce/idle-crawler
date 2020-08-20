@@ -16,7 +16,8 @@ pub fn draw_main_menu<B: Backend>(f: &mut Frame<B>, area: Rect) {
         (Choice::new("host", Message::PlaceHolder), None),
         (Choice::new("quit", Message::PlaceHolder), None),
     ]);
-    f.render_stateful_widget(menu.list, area, &mut menu.state);
+    let list = Menu::new_list(&menu.buttons);
+    f.render_stateful_widget(list, area, &mut menu.state);
 }
 
 #[derive(Debug)]
@@ -52,26 +53,23 @@ impl Choice {
 }
 
 #[derive(Debug)]
-struct Menu<'a> {
+struct Menu {
     buttons: Vec<Choice>,
     shortcuts: Vec<char>,
-    list: List<'a>,
     state: ListState,
 }
 
-impl Menu<'_> {
-    fn new(items: Vec<(Choice, Option<char>)>) -> Menu<'static> {
+impl Menu {
+    fn new(items: Vec<(Choice, Option<char>)>) -> Menu {
         let (buttons, shortcuts) = Menu::extrapolate_shorts(items);
-        let list = Menu::new_list(&buttons);
         Menu {
             buttons,
             shortcuts,
-            list,
             state: ListState::default(),
         }
     }
 
-    fn new_list(buttons: &[Choice]) -> List<'static> {
+    fn new_list(buttons: &[Choice]) -> List {
         List::new(
             buttons
                 .iter()
